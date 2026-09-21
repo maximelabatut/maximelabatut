@@ -1,0 +1,48 @@
+services:
+  www:
+    image: nginx
+    container_name: www
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./www/html:/usr/share/nginx/html:ro
+
+  gamevault:
+    image: nginx
+    container_name: gamevault
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    volumes:
+      - ./gamevault/html:/usr/share/nginx/html:ro
+
+  web2:
+    image: nginx
+    container_name: web2
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    volumes:
+      - ./web2/html:/usr/share/nginx/html:ro
+
+  cloudflared-www:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-www
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_WWW}
+
+  cloudflared-gamevault:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-gamevault
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_GAMEVAULT}
+
+  cloudflared-web2:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-web2
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_WEB2}
