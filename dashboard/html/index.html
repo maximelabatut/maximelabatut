@@ -50,7 +50,7 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
     gap: 16px;
-    margin-bottom: 16px;
+    margin-bottom: 24px;
   }
   .card {
     background: var(--card);
@@ -64,30 +64,68 @@
   .bar > div { height: 100%; width: 0; background: var(--accent); transition: width 0.4s, background 0.4s; }
   svg.spark { width: 100%; height: 48px; margin-top: 10px; display: block; }
   svg.spark polyline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); }
+
+  h2.section { margin-top: 8px; }
+  details.app {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 10px;
+    transition: border-color 0.2s;
+  }
+  details.app[open] { border-color: #3a3f4a; }
+  details.app summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    user-select: none;
+  }
+  details.app summary::-webkit-details-marker { display: none; }
+  details.app summary::before {
+    content: "";
+    width: 7px; height: 7px;
+    border-right: 2px solid var(--muted);
+    border-bottom: 2px solid var(--muted);
+    transform: rotate(-45deg);
+    transition: transform 0.2s;
+    flex-shrink: 0;
+  }
+  details.app[open] summary::before { transform: rotate(45deg); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .dot.ok { background: var(--ok); }
+  .dot.warn { background: var(--warn); }
+  .dot.bad { background: var(--bad); }
+  .app-name { font-weight: 600; flex: 1; min-width: 0; }
+  .app-url { flex-shrink: 0; text-align: right; white-space: nowrap; }
+  .app-url a { color: var(--accent); font-size: 0.8rem; text-decoration: none; }
+  .app-url a:hover { text-decoration: underline; }
+  .app-cpu { font-size: 0.78rem; color: var(--muted); flex: 0 0 88px; width: 88px; text-align: right; font-variant-numeric: tabular-nums; }
+  .app-count { font-size: 0.78rem; flex: 0 0 96px; width: 96px; text-align: right; }
+  @media (max-width: 700px) { .app-url { display: none; } }
+  .app-count.ok { color: var(--ok); }
+  .app-count.warn { color: var(--warn); }
+  .app-count.bad { color: var(--bad); }
+  .app-body { padding: 4px 18px 16px; border-top: 1px solid var(--border); }
+  .access { margin: 12px 0 4px; }
+  .access a { color: var(--accent); text-decoration: none; }
+  .access a:hover { text-decoration: underline; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 8px; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
   th { color: var(--muted); font-weight: 500; font-size: 0.8rem; }
   tr:last-child td { border-bottom: none; }
-  .badge { font-size: 0.75rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); }
+  td a.log { color: var(--text); text-decoration: none; border-bottom: 1px dashed var(--muted); }
+  td a.log:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  td.desc { color: var(--muted); font-size: 0.82rem; }
+  .kind { font-size: 0.72rem; color: var(--muted); border: 1px solid var(--border); border-radius: 6px; padding: 2px 7px; white-space: nowrap; }
+  .kind.tunnel { color: var(--accent); border-color: var(--accent); }
+  .badge { font-size: 0.75rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); white-space: nowrap; }
   .badge.running { color: var(--ok); border-color: var(--ok); }
   .badge.exited, .badge.dead { color: var(--bad); border-color: var(--bad); }
   .badge.other { color: var(--warn); border-color: var(--warn); }
-  .scroll { overflow-x: auto; }
-  .links { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-  a.link {
-    display: block;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 14px 16px;
-    color: var(--text);
-    text-decoration: none;
-    font-size: 0.9rem;
-    transition: border-color 0.2s, transform 0.2s;
-  }
-  a.link:hover { border-color: var(--accent); transform: translateY(-2px); }
-  a.link span { display: block; color: var(--muted); font-size: 0.75rem; margin-top: 3px; }
-  section { margin-bottom: 16px; }
 </style>
 </head>
 <body>
@@ -126,32 +164,57 @@
   </div>
 </div>
 
-<section class="card">
-  <h2>Conteneurs</h2>
-  <div class="scroll">
-    <table>
-      <thead><tr><th>Nom</th><th>État</th><th>CPU</th></tr></thead>
-      <tbody id="containers"><tr><td colspan="3" class="muted">Chargement…</td></tr></tbody>
-    </table>
-  </div>
-</section>
-
-<section class="card">
-  <h2>Raccourcis</h2>
-  <div class="links">
-    <a class="link" href="https://www.maximelabatut.com">Site principal<span>www.maximelabatut.com</span></a>
-    <a class="link" href="https://gamevault.maximelabatut.com">GameVault<span>gamevault.maximelabatut.com</span></a>
-    <a class="link" href="https://web2.maximelabatut.com">Web2<span>web2.maximelabatut.com</span></a>
-    <a class="link" href="https://logs.maximelabatut.com">Logs (Dozzle)<span>logs.maximelabatut.com</span></a>
-    <a class="link" href="https://netdata.maximelabatut.com">Netdata complet<span>netdata.maximelabatut.com</span></a>
-  </div>
-</section>
+<h2 class="section">Applications</h2>
+<div id="apps"><p class="muted">Chargement…</p></div>
 
 <script>
 const $ = id => document.getElementById(id);
 const COLORS = { ok: 'var(--ok)', warn: 'var(--warn)', bad: 'var(--bad)' };
+const DOZZLE = 'https://logs.maximelabatut.com/container/';
 let names = [];
 let tick = 0;
+let meta = {};
+let openApps = new Set();
+try { openApps = new Set(JSON.parse(localStorage.getItem('openApps') || '[]')); } catch (e) {}
+
+const APPS = [
+  { id: 'www', name: 'Site principal', url: 'https://www.maximelabatut.com', members: ['www', 'cloudflared-www'] },
+  { id: 'gamevault', name: 'GameVault', url: 'https://gamevault.maximelabatut.com', members: ['gamevault', 'cloudflared-gamevault'] },
+  { id: 'web2', name: 'Web2', url: 'https://web2.maximelabatut.com', members: ['web2', 'cloudflared-web2'] },
+  { id: 'dashboard', name: 'Dashboard', url: 'https://config.maximelabatut.com', members: ['dashboard', 'dashboard-sync', 'cloudflared-config'] },
+  { id: 'netdata', name: 'Netdata', url: 'https://netdata.maximelabatut.com', members: ['netdata', 'cloudflared-netdata'] },
+  { id: 'dozzle', name: 'Logs (Dozzle)', url: 'https://logs.maximelabatut.com', members: ['dozzle', 'cloudflared-logs'] }
+];
+
+const DESCRIPTIONS = {
+  'www': 'Serveur web nginx : sert le site www.maximelabatut.com (port 8080)',
+  'cloudflared-www': 'Publie le site www sur Internet (aucun port ouvert sur la box)',
+  'gamevault': 'Serveur web nginx : sert gamevault.maximelabatut.com (port 8081)',
+  'cloudflared-gamevault': 'Publie GameVault sur Internet',
+  'web2': 'Serveur web nginx : sert web2.maximelabatut.com (port 8082)',
+  'cloudflared-web2': 'Publie web2 sur Internet',
+  'dashboard': 'Sert cette page et relaie l\'API de Netdata (port 8083)',
+  'dashboard-sync': 'Génère la liste des conteneurs (nom, ID) pour les liens vers Dozzle',
+  'cloudflared-config': 'Publie le dashboard (config.maximelabatut.com)',
+  'cloudflared-netdata': 'Publie Netdata (netdata.maximelabatut.com)',
+  'netdata': 'Collecte les métriques du Pi : température, CPU, RAM, disque, réseau, conteneurs',
+  'dozzle': 'Visionneuse de logs en direct de tous les conteneurs (lecture seule)',
+  'cloudflared-logs': 'Publie Dozzle (logs.maximelabatut.com)'
+};
+
+function kindOf(name) {
+  if (name.startsWith('cloudflared-')) return ['Tunnel', 'tunnel'];
+  if (name === 'dashboard-sync') return ['Service', ''];
+  return ['Application', ''];
+}
+
+document.addEventListener('toggle', e => {
+  const d = e.target;
+  if (!d.matches || !d.matches('details.app')) return;
+  const id = d.getAttribute('data-id');
+  if (d.open) openApps.add(id); else openApps.delete(id);
+  try { localStorage.setItem('openApps', JSON.stringify([...openApps])); } catch (err) {}
+}, true);
 
 async function query(chart, params) {
   const url = '/api/v1/data?chart=' + encodeURIComponent(chart) +
@@ -244,14 +307,58 @@ async function loadNames() {
     .sort();
 }
 
+async function loadMeta() {
+  const r = await fetch('/containers.json', { cache: 'no-store' });
+  if (!r.ok) throw new Error('containers.json ' + r.status);
+  const list = await r.json();
+  meta = {};
+  list.forEach(c => { meta[c.name] = c; });
+}
+
 function stateOf(o) {
   let best = 'other', max = -1;
   Object.entries(o).forEach(([k, v]) => { if (k !== 'time' && v > max) { max = v; best = k; } });
   return best;
 }
 
+function rowHtml(r) {
+  const cls = r.state === 'running' ? 'running' : (r.state === 'exited' || r.state === 'dead') ? 'exited' : 'other';
+  const cpu = r.cpu === null ? '—' : r.cpu.toFixed(1) + ' %';
+  const m = meta[r.name];
+  const label = m && m.id
+    ? '<a class="log" href="' + DOZZLE + m.id + '" target="_blank" rel="noopener" title="Voir les logs dans Dozzle">' + r.name + '</a>'
+    : r.name;
+  const desc = DESCRIPTIONS[r.name] || (m ? 'Image : ' + m.image : '');
+  const [kindLabel, kindCls] = kindOf(r.name);
+  return '<tr><td><span class="kind ' + kindCls + '">' + kindLabel + '</span></td><td>' + label + '</td><td class="desc">' + desc +
+    '</td><td><span class="badge ' + cls + '">' + r.state + '</span></td><td>' + cpu + '</td></tr>';
+}
+
+function groupHtml(g) {
+  const total = g.rows.length;
+  const up = g.rows.filter(r => r.state === 'running').length;
+  const cls = total && up === total ? 'ok' : up === 0 ? 'bad' : 'warn';
+  const host = g.url ? g.url.replace('https://', '') : '';
+  const access = g.url
+    ? '<p class="muted access">Accès : <a href="' + g.url + '" target="_blank" rel="noopener">' + host + ' ↗</a></p>'
+    : '';
+  const note = g.note ? '<p class="muted" style="margin-top:6px">' + g.note + '</p>' : '';
+  const cpuSum = g.rows.reduce((s, r) => s + (r.cpu || 0), 0);
+  const link = g.url
+    ? '<a href="' + g.url + '" target="_blank" rel="noopener" title="Ouvrir ' + host + '">' + host + ' ↗</a>'
+    : '';
+  return '<details class="app" data-id="' + g.id + '"' + (openApps.has(g.id) ? ' open' : '') + '>' +
+    '<summary><span class="dot ' + cls + '"></span><span class="app-name">' + g.name + '</span>' +
+    '<span class="app-url">' + link + '</span><span class="app-cpu" title="Somme du CPU des conteneurs du tiroir">CPU ' + cpuSum.toFixed(1) + ' %</span>' +
+    '<span class="app-count ' + cls + '">' + up + '/' + total + ' en ligne</span></summary>' +
+    '<div class="app-body">' + access + note +
+    '<div class="scroll"><table><thead><tr><th></th><th>Conteneur</th><th>Rôle</th><th>État</th><th>CPU</th></tr></thead><tbody>' +
+    g.rows.map(rowHtml).join('') + '</tbody></table></div></div></details>';
+}
+
 async function updateContainers() {
   if (!names.length) await loadNames();
+  await loadMeta().catch(() => {});
   const rows = await Promise.all(names.map(async name => {
     const [st, cpu] = await Promise.allSettled([
       latest('docker_local.container_' + name + '_state'),
@@ -263,11 +370,16 @@ async function updateContainers() {
       cpu: cpu.status === 'fulfilled' ? sumValues(cpu.value) : null
     };
   }));
-  $('containers').innerHTML = rows.map(r => {
-    const cls = r.state === 'running' ? 'running' : (r.state === 'exited' || r.state === 'dead') ? 'exited' : 'other';
-    const cpu = r.cpu === null ? '—' : r.cpu.toFixed(1) + ' %';
-    return '<tr><td>' + r.name + '</td><td><span class="badge ' + cls + '">' + r.state + '</span></td><td>' + cpu + '</td></tr>';
-  }).join('');
+  const byName = {};
+  rows.forEach(r => { byName[r.name] = r; });
+  const used = new Set();
+  const groups = APPS.map(a => {
+    a.members.forEach(n => used.add(n));
+    return { ...a, rows: a.members.map(n => byName[n]).filter(Boolean) };
+  });
+  const others = rows.filter(r => !used.has(r.name));
+  if (others.length) groups.push({ id: 'others', name: 'Autres conteneurs', url: null, rows: others });
+  $('apps').innerHTML = groups.map(groupHtml).join('');
 }
 
 async function refresh() {

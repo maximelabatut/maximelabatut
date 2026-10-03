@@ -34,6 +34,17 @@ services:
     volumes:
       - ./dashboard/html:/usr/share/nginx/html:ro
       - ./dashboard/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./dashboard/data:/data:ro
+
+  dashboard-sync:
+    image: docker:cli
+    container_name: dashboard-sync
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/sync.sh"]
+    volumes:
+      - ./dashboard/sync.sh:/sync.sh:ro
+      - ./dashboard/data:/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
 
   netdata:
     image: netdata/netdata:stable
@@ -67,7 +78,7 @@ services:
     container_name: dozzle
     restart: unless-stopped
     ports:
-      - "8084:8080"
+      - "127.0.0.1:8084:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
@@ -105,6 +116,13 @@ services:
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_LOGS}
+
+  cloudflared-netdata:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-netdata
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_NETDATA}
 
 volumes:
   netdataconfig:
