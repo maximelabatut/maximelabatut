@@ -8,6 +8,16 @@ services:
     volumes:
       - ./www/html:/usr/share/nginx/html:ro
 
+  www-status:
+    image: curlimages/curl:latest
+    container_name: www-status
+    restart: unless-stopped
+    user: root
+    entrypoint: ["/bin/sh", "/status.sh"]
+    volumes:
+      - ./www/status.sh:/status.sh:ro
+      - ./www/html/data:/data
+
   gamevault:
     image: nginx
     container_name: gamevault

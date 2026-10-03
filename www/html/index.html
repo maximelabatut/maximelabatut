@@ -3,90 +3,301 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Maxime Labatut</title>
+<title>Maxime Labatut · Bienvenue chez moi</title>
+<meta name="description" content="Mon homelab : des sites et des applications hébergés à la maison, sur un Raspberry Pi.">
 <style>
   :root {
-    --bg: #0f1115;
-    --card: #1a1d24;
-    --text: #e8e8ea;
-    --muted: #8a8f98;
-    --accent: #5b8cff;
+    --bg: #fbf6ee;
+    --surface: #fffdf9;
+    --text: #2d2a26;
+    --muted: #7a7167;
+    --accent: #e0703a;
+    --accent-dark: #c65a27;
+    --accent-soft: #fde9dc;
+    --sage: #e6efe3;
+    --ok: #2f9e63;
+    --bad: #d6453d;
+    --border: #eadfce;
+    --shadow: 0 1px 2px rgba(80, 55, 30, 0.05), 0 8px 24px rgba(80, 55, 30, 0.07);
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
   body {
     background: var(--bg);
     color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
+    font-family: var(--sans);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
-  header {
-    text-align: center;
-    margin-bottom: 48px;
+  a { color: inherit; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+
+  nav { display: flex; align-items: center; justify-content: space-between; padding: 22px 0; }
+  .brand { font-family: var(--serif); font-size: 1.15rem; font-weight: 700; text-decoration: none; }
+  .brand span { color: var(--accent); }
+  nav ul { display: flex; gap: 26px; list-style: none; font-size: 0.95rem; }
+  nav ul a { text-decoration: none; color: var(--muted); transition: color 0.2s; }
+  nav ul a:hover { color: var(--accent-dark); }
+
+  .hero {
+    position: relative;
+    padding: 56px 0 72px;
+    isolation: isolate;
   }
-  h1 {
-    font-size: 2.2rem;
-    font-weight: 600;
+  .hero::before, .hero::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    z-index: -1;
+    filter: blur(2px);
   }
-  header p {
-    color: var(--muted);
-    margin-top: 8px;
-    font-size: 1rem;
+  .hero::before { width: 380px; height: 380px; right: -60px; top: -10px; background: radial-gradient(circle at 35% 35%, #fbd6bd, rgba(251, 214, 189, 0) 70%); }
+  .hero::after { width: 300px; height: 300px; left: -120px; bottom: -40px; background: radial-gradient(circle at 60% 40%, #dcebd6, rgba(220, 235, 214, 0) 70%); }
+  .eyebrow { display: inline-block; font-size: 0.85rem; font-weight: 600; letter-spacing: 0.04em; color: var(--accent-dark); background: var(--accent-soft); padding: 5px 14px; border-radius: 999px; margin-bottom: 22px; }
+  h1 { font-family: var(--serif); font-size: clamp(2.5rem, 7vw, 4.4rem); line-height: 1.08; letter-spacing: -0.02em; max-width: 11ch; text-wrap: balance; }
+  h1 em { font-style: italic; color: var(--accent); }
+  .lead { margin-top: 22px; font-size: 1.2rem; color: var(--muted); max-width: 52ch; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+  .btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 22px; border-radius: 999px; font-weight: 600; font-size: 0.95rem; text-decoration: none; transition: transform 0.2s, background 0.2s, box-shadow 0.2s; }
+  .btn.primary { background: var(--accent); color: #fff; box-shadow: 0 6px 16px rgba(224, 112, 58, 0.3); }
+  .btn.primary:hover { background: var(--accent-dark); transform: translateY(-2px); }
+  .btn.ghost { background: var(--surface); border: 1px solid var(--border); }
+  .btn.ghost:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+  .live { display: inline-flex; align-items: center; gap: 10px; margin-top: 38px; padding: 9px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; font-size: 0.88rem; box-shadow: var(--shadow); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #b9b0a4; flex-shrink: 0; }
+  .dot.ok { background: var(--ok); box-shadow: 0 0 0 0 rgba(47, 158, 99, 0.5); animation: pulse 2.4s infinite; }
+  .dot.bad { background: var(--bad); }
+  @keyframes pulse { 70% { box-shadow: 0 0 0 9px rgba(47, 158, 99, 0); } 100% { box-shadow: 0 0 0 0 rgba(47, 158, 99, 0); } }
+
+  section { padding: 56px 0; }
+  .section-head { margin-bottom: 32px; }
+  .section-head .kicker { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent-dark); }
+  h2 { font-family: var(--serif); font-size: clamp(1.8rem, 4vw, 2.4rem); line-height: 1.15; margin-top: 6px; }
+  .section-head p { color: var(--muted); margin-top: 10px; max-width: 58ch; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+  .card { display: flex; flex-direction: column; gap: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 28px; box-shadow: var(--shadow); transition: transform 0.25s, border-color 0.25s; }
+  .card:hover { transform: translateY(-4px); border-color: #e5c9ae; }
+  .card-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .icon { width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent-dark); }
+  .icon.sage { background: var(--sage); color: #3c7a4f; }
+  .icon svg { width: 24px; height: 24px; }
+  .status { display: inline-flex; align-items: center; gap: 7px; font-size: 0.8rem; color: var(--muted); }
+  .card h3 { font-family: var(--serif); font-size: 1.5rem; }
+  .card p { color: var(--muted); flex: 1; }
+  .card .link { font-weight: 600; text-decoration: none; color: var(--accent-dark); }
+  .card .link:hover { text-decoration: underline; }
+
+  .step { position: relative; background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 22px 16px; text-align: center; box-shadow: var(--shadow); }
+  .step .num { width: 32px; height: 32px; margin: 0 auto 12px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-dark); font-weight: 700; display: grid; place-items: center; font-size: 0.9rem; }
+  .step.home { background: var(--sage); border-color: #cfe0ca; }
+  .step.home .num { background: #fff; color: #3c7a4f; }
+  .step h4 { font-size: 1rem; margin-bottom: 4px; }
+  .step p { font-size: 0.84rem; color: var(--muted); line-height: 1.45; }
+  .arrow { display: grid; place-items: center; min-width: 28px; position: relative; }
+  .flow-wrap { display: grid; grid-template-columns: 1fr 28px 1fr 28px 1fr 28px 1fr 28px 1fr; align-items: stretch; }
+  .arrow::before { content: ""; width: 100%; height: 2px; background: repeating-linear-gradient(90deg, #d9bfa5 0 6px, transparent 6px 12px); background-size: 12px 2px; animation: dash 1s linear infinite; }
+  @keyframes dash { to { background-position: 12px 0; } }
+  .arrow::after { content: ""; position: absolute; right: 2px; width: 8px; height: 8px; border-top: 2px solid #d9bfa5; border-right: 2px solid #d9bfa5; transform: rotate(45deg); }
+  .flow-note { margin-top: 22px; padding: 16px 20px; background: var(--accent-soft); border-radius: 14px; color: #6b3d1e; font-size: 0.95rem; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip { padding: 9px 18px; border-radius: 999px; background: var(--surface); border: 1px solid var(--border); font-size: 0.92rem; font-weight: 500; box-shadow: 0 1px 2px rgba(80, 55, 30, 0.04); transition: transform 0.2s, border-color 0.2s; }
+  .chip:hover { transform: translateY(-2px); border-color: var(--accent); }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-top: 30px; }
+  .fact { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; text-align: center; }
+  .fact strong { display: block; font-family: var(--serif); font-size: 1.7rem; color: var(--accent-dark); }
+  .fact span { font-size: 0.85rem; color: var(--muted); }
+
+  .contact { background: var(--accent-soft); border-radius: 28px; padding: 44px; text-align: center; }
+  .contact h2 { margin-top: 0; }
+  .contact p { color: #7a5a40; margin: 12px auto 24px; max-width: 46ch; }
+  .contact .cta { justify-content: center; margin-top: 0; }
+
+  footer { padding: 36px 0 44px; text-align: center; color: var(--muted); font-size: 0.88rem; }
+
+  @media (max-width: 860px) {
+    nav ul { display: none; }
+    .flow-wrap { grid-template-columns: 1fr; }
+    .arrow { min-height: 28px; }
+    .arrow::before { width: 2px; height: 100%; background: repeating-linear-gradient(180deg, #d9bfa5 0 6px, transparent 6px 12px); background-size: 2px 12px; animation-name: dash-v; }
+    @keyframes dash-v { to { background-position: 0 12px; } }
+    .arrow::after { right: auto; bottom: 2px; transform: rotate(135deg); }
+    .contact { padding: 32px 22px; }
   }
-  .services {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 20px;
-    width: 100%;
-    max-width: 700px;
-  }
-  a.card {
-    background: var(--card);
-    border: 1px solid #2a2d35;
-    border-radius: 12px;
-    padding: 24px;
-    text-decoration: none;
-    color: var(--text);
-    transition: border-color 0.2s, transform 0.2s;
-  }
-  a.card:hover {
-    border-color: var(--accent);
-    transform: translateY(-2px);
-  }
-  a.card h2 {
-    font-size: 1.1rem;
-    margin-bottom: 6px;
-  }
-  a.card p {
-    color: var(--muted);
-    font-size: 0.9rem;
-  }
-  footer {
-    margin-top: 48px;
-    color: var(--muted);
-    font-size: 0.8rem;
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+    html { scroll-behavior: auto; }
   }
 </style>
 </head>
 <body>
-  <header>
-    <h1>Maxime Labatut</h1>
-    <p>Serveur personnel auto-hébergé sur Raspberry Pi</p>
+<div class="wrap">
+  <nav>
+    <a class="brand" href="#">Maxime<span>.</span>Labatut</a>
+    <ul>
+      <li><a href="#apps">Applications</a></li>
+      <li><a href="#coulisses">Les coulisses</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+  </nav>
+
+  <header class="hero">
+    <span class="eyebrow">Homelab · auto-hébergé</span>
+    <h1>Bienvenue <em>chez moi.</em></h1>
+    <p class="lead">Ici, chaque site tourne sur un petit Raspberry Pi posé à la maison. Entrez, regardez les applications, et jetez un œil aux coulisses.</p>
+    <div class="cta">
+      <a class="btn primary" href="#apps">Découvrir les applications</a>
+      <a class="btn ghost" href="#coulisses">Comment ça marche</a>
+    </div>
+    <div class="live" id="live">
+      <span class="dot" id="live-dot"></span>
+      <span id="live-text">Vérification de l'état du serveur…</span>
+    </div>
   </header>
-  <div class="services">
-    <a class="card" href="https://gamevault.maximelabatut.com">
-      <h2>GameVault →</h2>
-      <p>gamevault.maximelabatut.com</p>
-    </a>
-    <a class="card" href="https://web2.maximelabatut.com">
-      <h2>Web2 →</h2>
-      <p>web2.maximelabatut.com</p>
-    </a>
-  </div>
-  <footer>Propulsé par Docker + Cloudflare Tunnel</footer>
+
+  <section id="apps">
+    <div class="section-head">
+      <span class="kicker">Applications</span>
+      <h2>Ce qui tourne en ce moment</h2>
+      <p>Chaque application vit dans son propre conteneur, avec son adresse et son tunnel dédiés.</p>
+    </div>
+    <div class="cards">
+      <article class="card">
+        <div class="card-top">
+          <div class="icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="4"/><path d="M7 10v4M5 12h4"/><circle cx="16" cy="11" r="1"/><circle cx="18" cy="13" r="1"/></svg>
+          </div>
+          <span class="status"><span class="dot" data-status="gamevault"></span><span data-status-text="gamevault">Vérification…</span></span>
+        </div>
+        <h3>GameVault</h3>
+        <p>Mon espace dédié aux jeux. Un coin pour ranger et retrouver ma collection.</p>
+        <a class="link" href="https://gamevault.maximelabatut.com" rel="noopener">Ouvrir GameVault →</a>
+      </article>
+
+      <article class="card">
+        <div class="card-top">
+          <div class="icon sage">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 15h9"/></svg>
+          </div>
+          <span class="status"><span class="dot" data-status="web2"></span><span data-status-text="web2">Vérification…</span></span>
+        </div>
+        <h3>Web2</h3>
+        <p>Mon laboratoire d'expériences : un terrain de jeu pour essayer de nouvelles idées.</p>
+        <a class="link" href="https://web2.maximelabatut.com" rel="noopener">Ouvrir Web2 →</a>
+      </article>
+    </div>
+  </section>
+
+  <section id="coulisses">
+    <div class="section-head">
+      <span class="kicker">Les coulisses</span>
+      <h2>Comment une visite arrive jusqu'à mon salon</h2>
+      <p>Pas de serveur dans un data center : tout passe par un tunnel chiffré vers le Raspberry Pi.</p>
+    </div>
+    <div class="flow-wrap">
+      <div class="step"><div class="num">1</div><h4>Vous</h4><p>Vous ouvrez l'adresse dans votre navigateur.</p></div>
+      <div class="arrow"></div>
+      <div class="step"><div class="num">2</div><h4>Cloudflare</h4><p>Le HTTPS et la protection sont assurés ici.</p></div>
+      <div class="arrow"></div>
+      <div class="step"><div class="num">3</div><h4>Tunnel chiffré</h4><p>Le Pi se connecte vers Cloudflare, jamais l'inverse.</p></div>
+      <div class="arrow"></div>
+      <div class="step home"><div class="num">4</div><h4>Raspberry Pi 4</h4><p>Le petit serveur, chez moi, qui fait tout le travail.</p></div>
+      <div class="arrow"></div>
+      <div class="step home"><div class="num">5</div><h4>Docker</h4><p>Chaque application tourne dans son conteneur.</p></div>
+    </div>
+    <p class="flow-note">Aucun port n'est ouvert sur ma box : c'est ce qui rend l'ensemble simple à mettre en place et sûr à exposer.</p>
+  </section>
+
+  <section id="capot">
+    <div class="section-head">
+      <span class="kicker">Sous le capot</span>
+      <h2>Les outils que j'utilise</h2>
+    </div>
+    <div class="chips">
+      <span class="chip">Raspberry Pi 4</span>
+      <span class="chip">Raspberry Pi OS 64 bits</span>
+      <span class="chip">Docker Compose</span>
+      <span class="chip">nginx</span>
+      <span class="chip">Cloudflare Tunnel</span>
+      <span class="chip">Cloudflare Access + MFA</span>
+      <span class="chip">Samba</span>
+      <span class="chip">Netdata</span>
+      <span class="chip">Dozzle</span>
+      <span class="chip">GitHub</span>
+    </div>
+    <div class="facts">
+      <div class="fact"><strong>4 Go</strong><span>de mémoire</span></div>
+      <div class="fact"><strong>4 cœurs</strong><span>ARM 64 bits</span></div>
+      <div class="fact"><strong>24 h / 24</strong><span>allumé en continu</span></div>
+      <div class="fact"><strong>Quelques W</strong><span>comme une ampoule LED</span></div>
+    </div>
+  </section>
+
+  <section id="contact">
+    <div class="contact">
+      <span class="kicker" style="font-size:.8rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-dark)">Contact</span>
+      <h2>Une question, une idée ?</h2>
+      <p>Le code et la configuration de ce serveur sont publiés sur GitHub. N'hésitez pas à y jeter un œil.</p>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/maximelabatut" rel="noopener">Mon GitHub →</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Fait main, hébergé à la maison · © 2026 Maxime Labatut
+  </footer>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const NAMES = { www: 'ce site', gamevault: 'GameVault', web2: 'Web2' };
+
+function setStatus(key, state) {
+  const dot = document.querySelector('[data-status="' + key + '"]');
+  const txt = document.querySelector('[data-status-text="' + key + '"]');
+  if (!dot || !txt) return;
+  dot.className = 'dot ' + (state === true ? 'ok' : state === false ? 'bad' : '');
+  txt.textContent = state === true ? 'En ligne' : state === false ? 'Indisponible' : 'Statut inconnu';
+}
+
+function fmtUptime(s) {
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  if (d >= 2) return d + ' jours';
+  if (d === 1) return '1 jour';
+  if (h >= 1) return h + ' h';
+  return m + ' min';
+}
+
+async function refreshStatus() {
+  try {
+    const r = await fetch('/data/status.json', { cache: 'no-store' });
+    if (!r.ok) throw new Error('status ' + r.status);
+    const s = await r.json();
+    const fresh = Date.now() / 1000 - s.updated < 180;
+    if (!fresh || !s.services || !Object.keys(s.services).length) throw new Error('stale');
+    const svc = s.services;
+    Object.keys(NAMES).forEach(k => setStatus(k, k in svc ? svc[k] : null));
+    const down = Object.keys(NAMES).filter(k => svc[k] === false);
+    const ok = down.length === 0;
+    $('#live-dot').className = 'dot ' + (ok ? 'ok' : 'bad');
+    $('#live-text').textContent = (ok
+      ? 'Tous les services sont opérationnels'
+      : (down.length === 1 ? NAMES[down[0]] + ' est momentanément indisponible' : 'Plusieurs services sont indisponibles'))
+      + ' · serveur allumé depuis ' + fmtUptime(s.uptime_seconds);
+  } catch (e) {
+    Object.keys(NAMES).forEach(k => setStatus(k, null));
+    $('#live-dot').className = 'dot';
+    $('#live-text').textContent = 'Statut du serveur indisponible pour le moment';
+  }
+}
+
+refreshStatus();
+setInterval(refreshStatus, 30000);
+</script>
 </body>
 </html>

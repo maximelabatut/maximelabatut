@@ -183,7 +183,7 @@ try { openApps = new Set(JSON.parse(localStorage.getItem('openApps') || '[]')); 
 
 // category: 'main' = applications, 'tech' = outils techniques et maintenance
 const APPS = [
-  { id: 'www', category: 'main', name: 'Site principal', url: 'https://www.maximelabatut.com', members: ['www', 'cloudflared-www'] },
+  { id: 'www', category: 'main', name: 'Site principal', url: 'https://www.maximelabatut.com', members: ['www', 'www-status', 'cloudflared-www'] },
   { id: 'gamevault', category: 'main', name: 'GameVault', url: 'https://gamevault.maximelabatut.com', members: ['gamevault', 'cloudflared-gamevault'] },
   { id: 'web2', category: 'main', name: 'Web2', url: 'https://web2.maximelabatut.com', members: ['web2', 'cloudflared-web2'] },
   { id: 'dashboard', category: 'tech', name: 'Dashboard', url: 'https://config.maximelabatut.com', members: ['dashboard', 'dashboard-sync', 'cloudflared-config'] },
@@ -193,6 +193,7 @@ const APPS = [
 
 const DESCRIPTIONS = {
   'www': 'Serveur web nginx : sert le site www.maximelabatut.com (port 8080)',
+  'www-status': 'Teste les sites toutes les 30 s et publie un statut public minimal (en ligne / hors ligne, uptime) pour la page d\'accueil',
   'cloudflared-www': 'Publie le site www sur Internet (aucun port ouvert sur la box)',
   'gamevault': 'Serveur web nginx : sert gamevault.maximelabatut.com (port 8081)',
   'cloudflared-gamevault': 'Publie GameVault sur Internet',
@@ -209,7 +210,7 @@ const DESCRIPTIONS = {
 
 function kindOf(name) {
   if (name.startsWith('cloudflared-')) return ['Tunnel', 'tunnel'];
-  if (name === 'dashboard-sync') return ['Service', ''];
+  if (name === 'dashboard-sync' || name === 'www-status') return ['Service', ''];
   return ['Application', ''];
 }
 
