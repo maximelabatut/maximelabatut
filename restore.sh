@@ -8,6 +8,13 @@ SRC_ENV="/tmp/pi.env"
 
 [ -f "$SRC_ENV" ] || { echo "Fichier $SRC_ENV manquant (il doit être copié depuis le Mac)."; exit 1; }
 
+# sudo demande un mot de passe sur ce Pi et l'oublie au bout de 5 min : on le saisit une fois, puis on le maintient.
+echo "== Droits administrateur (mot de passe du Pi)"
+sudo -v
+( while true; do sudo -n true 2>/dev/null; sleep 50; kill -0 "$$" 2>/dev/null || exit; done ) &
+KEEPALIVE=$!
+trap 'kill "$KEEPALIVE" 2>/dev/null || true' EXIT
+
 echo "== 1/7 Système"
 sudo apt-get update -y
 sudo DEBIAN_FRONTEND=noninteractive apt-get full-upgrade -y -o Dpkg::Options::=--force-confold
@@ -20,6 +27,11 @@ sudo usermod -aG docker "$USER"
 echo "== 3/7 Dépôt GitHub"
 [ -d "$HOME/docker/.git" ] || git clone "$REPO" "$HOME/docker"
 mkdir -p "$HOME/docker/www/html/data" "$HOME/docker/dashboard/data" "$HOME/docker/uptime-kuma/data"
+if [ -f /tmp/uptime-kuma-data.tgz ]; then
+  echo "   Restauration des données Uptime Kuma"
+  tar xzf /tmp/uptime-kuma-data.tgz -C "$HOME/docker/uptime-kuma/data"
+  rm -f /tmp/uptime-kuma-data.tgz
+fi
 
 echo "== 4/7 Secrets (.env)"
 cp "$SRC_ENV" "$HOME/docker/.env"

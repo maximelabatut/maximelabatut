@@ -20,33 +20,33 @@ Insérer la carte, brancher, attendre ~2 min que le Pi soit sur le WiFi.
 ~/Desktop/raspberrypi/restaurer-pi.sh
 ```
 
-Il demande **deux mots de passe** :
-1. celui de l'utilisateur `maxime` du Pi (une seule fois pour toute la session)
-2. le mot de passe Samba à choisir (saisi deux fois, jamais stocké)
+Il demande **trois saisies** :
+1. le mot de passe de l'utilisateur `maxime` du Pi, pour SSH (une seule fois pour toute la session)
+2. ce même mot de passe pour `sudo` (une fois : le script maintient ensuite l'autorisation, car `sudo` l'oublierait après 5 minutes pendant les mises à jour)
+3. le mot de passe Samba à choisir (saisi deux fois, jamais stocké)
 
-Il enchaîne tout seul : envoi du `.env`, mise à jour système, Docker, clone GitHub, `DOCKER_GID`, Samba, module Argon avec sa courbe de ventilation, `docker compose up -d`, puis redémarrage du Pi. Compter **20 à 30 minutes** (surtout de l'attente). Il peut être relancé sans risque s'il s'interrompt.
+Il enchaîne tout seul : envoi du `.env` et des données d'Uptime Kuma, mise à jour système, Docker, clone GitHub, `DOCKER_GID`, Samba, module Argon avec sa courbe de ventilation, `docker compose up -d`, puis redémarrage du Pi. Compter **20 à 30 minutes** (surtout de l'attente). Il peut être relancé sans risque s'il s'interrompt.
 
 ### 3. Vérifier (Mac, ~2 min après la fin)
 
 - `ssh maxime@maxime.local` puis `docker compose -f ~/docker/docker-compose.yml ps` : tous les conteneurs `Up`
 - `https://www.maximelabatut.com`, `https://config.maximelabatut.com` (email + code + MFA)
+- `https://uptime.maximelabatut.com` : le compte, les 3 sondes et la notification ntfy sont déjà là (aucune reconfiguration)
 - Finder → `Cmd+K` → `smb://maxime.local/docker`
 - `vcgencmd get_throttled` → `throttled=0x0`
-
-### 4. Reconfigurer Uptime Kuma (~10 min, si les alertes sont utilisées)
-
-Ses données (compte administrateur, canal ntfy, sondes) ne sont pas dans git : sur une carte vierge, refaire les étapes 3 à 6 de la section « Alertes : Uptime Kuma + ntfy » de `docs/ajouter-un-site.md`. Garder le nom du canal ntfy dans le gestionnaire de mots de passe.
 
 ## Prérequis à garder en état
 
 | Quoi | Où | Mise à jour |
 |---|---|---|
-| `.env` (7 tokens) | `~/Desktop/raspberrypi/.env` | après tout changement de token : `scp maxime@maxime.local:~/docker/.env ~/Desktop/raspberrypi/.env && chmod 600 ~/Desktop/raspberrypi/.env` |
+| `.env` (7 tokens) | `~/Desktop/raspberrypi/.env` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (après tout changement de token) |
+| Données d'Uptime Kuma (compte, canal ntfy, sondes) | `~/Desktop/raspberrypi/uptime-kuma-data.tgz` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (après un changement de sondes ou de notification) |
+| `sauvegarder-pi.sh` | `~/Desktop/raspberrypi/` (copie du repo : `mac/sauvegarder-pi.sh`) | si modifié dans le repo |
 | `restaurer-pi.sh` | `~/Desktop/raspberrypi/` (copie du repo : `mac/restaurer-pi.sh`) | si modifié dans le repo |
 | `restore.sh` | repo GitHub (le script Mac le télécharge) ; copie locale en secours dans `~/Desktop/raspberrypi/` | si modifié dans le repo |
 | Configuration | GitHub, à jour | `git status` et `git log origin/main..HEAD --oneline` sur le Pi doivent être vides |
 
-Garder aussi une copie du `.env` et le mot de passe Samba dans le gestionnaire de mots de passe.
+`sauvegarder-pi.sh` (Pi allumé ; mot de passe du Pi pour SSH puis pour `sudo`) copie le `.env` et un instantané **cohérent** de la base d'Uptime Kuma (SQLite `.backup`, qui tient compte du journal WAL : une simple copie de `kuma.db` perdrait les écritures récentes), vérifie son intégrité, et conserve la version précédente en `.prev`. Ces fichiers contiennent des secrets (tokens, hash du compte, canal ntfy) : droits `600`, ne jamais les versionner. Garder aussi le mot de passe Samba et le nom du canal ntfy dans le gestionnaire de mots de passe.
 
 ## Procédure manuelle (si le script ne passe pas)
 
@@ -62,8 +62,10 @@ exit
 Se reconnecter (`ssh maxime@maxime.local`), puis :
 ```bash
 git clone https://github.com/maximelabatut/maximelabatut.git ~/docker
-mkdir -p ~/docker/www/html/data ~/docker/dashboard/data
+mkdir -p ~/docker/www/html/data ~/docker/dashboard/data ~/docker/uptime-kuma/data
 ```
+Données d'Uptime Kuma (si `uptime-kuma-data.tgz` existe sur le Mac) : `scp ~/Desktop/raspberrypi/uptime-kuma-data.tgz maxime@maxime.local:/tmp/` puis, sur le Pi, `tar xzf /tmp/uptime-kuma-data.tgz -C ~/docker/uptime-kuma/data` avant le premier `docker compose up -d`.
+
 (repo privé : d'abord `sudo apt install -y gh && gh auth login`). Sur le Mac :
 ```bash
 scp ~/Desktop/raspberrypi/.env maxime@maxime.local:~/docker/.env

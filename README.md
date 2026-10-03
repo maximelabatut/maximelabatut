@@ -82,7 +82,7 @@ Le Pi ouvre lui-même la connexion vers Cloudflare. Rien n'est exposé directeme
 ├── netdata/                # configuration de Netdata
 ├── argon/                  # courbe du ventilateur du boîtier Argon ONE
 ├── restore.sh              # restauration complète, exécutée sur le Pi
-├── mac/restaurer-pi.sh     # lance la restauration depuis le Mac
+├── mac/                    # sauvegarde et restauration, lancées depuis le Mac
 └── docs/                   # documentation détaillée
 ```
 
@@ -111,7 +111,7 @@ docker compose up -d
 
 ## Restauration
 
-Si la carte SD est à remplacer : flasher Raspberry Pi OS Lite 64 bits avec Raspberry Pi Imager, puis lancer depuis le Mac une seule commande qui réinstalle tout (système, Docker, configuration, Samba, ventilateur, conteneurs) :
+Le `.env` et les données d'Uptime Kuma sont sauvegardés sur le Mac par `mac/sauvegarder-pi.sh` (instantané SQLite cohérent). Si la carte SD est à remplacer : flasher Raspberry Pi OS Lite 64 bits avec Raspberry Pi Imager, puis lancer depuis le Mac une seule commande qui réinstalle tout (système, Docker, configuration, Samba, ventilateur, données d'Uptime Kuma, conteneurs) :
 
 ```bash
 ~/Desktop/raspberrypi/restaurer-pi.sh

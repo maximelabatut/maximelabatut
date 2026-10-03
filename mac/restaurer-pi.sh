@@ -32,6 +32,13 @@ echo "Connexion au Pi (saisis le mot de passe de l'utilisateur maxime, une seule
 ssh "${OPTS[@]}" "$HOST" true
 
 scp "${OPTS[@]}" "$ENV_FILE" "$HOST:/tmp/pi.env"
+KUMA_ARCHIVE="${KUMA_ARCHIVE:-$HOME/Desktop/raspberrypi/uptime-kuma-data.tgz}"
+if [ -f "$KUMA_ARCHIVE" ]; then
+  scp "${OPTS[@]}" "$KUMA_ARCHIVE" "$HOST:/tmp/uptime-kuma-data.tgz"
+  echo "Données Uptime Kuma envoyées (sondes, notification ntfy, compte)."
+else
+  echo "Pas de sauvegarde Uptime Kuma ($KUMA_ARCHIVE) : à reconfigurer à la main."
+fi
 scp "${OPTS[@]}" "$TMP/restore.sh" "$HOST:/tmp/restore.sh"
 ssh -t "${OPTS[@]}" "$HOST" "bash /tmp/restore.sh; rm -f /tmp/restore.sh"
 
