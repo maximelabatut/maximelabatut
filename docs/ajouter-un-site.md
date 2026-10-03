@@ -182,11 +182,22 @@ Config versionnée dans le repo et montée en lecture seule dans le conteneur `n
 
 Après modification d'un de ces fichiers : `docker restart netdata`.
 
-**Diagnostic (3 oct. 2026)** : le Pi tournait à ~25 % de CPU alors que la somme des conteneurs ne dépassait pas ~8 % d'un cœur. En réalité `dockerd` et `containerd` consommaient chacun ~42 % d'un cœur, en dehors de tout conteneur. Dozzle arrêté n'a rien changé ; Netdata arrêté a fait passer `dockerd` de ~29 % à ~3-6 % : c'est son collecteur Docker (une interrogation de l'API toutes les 2 s) qui sollicitait le démon, d'où le passage à 10 s. Méthode de mesure, sur le Pi (la colonne `%CPU` est la 9e) :
+**Diagnostic (3 oct. 2026)** : le Pi tournait à ~25 % de CPU (4 cœurs) alors que la somme des conteneurs ne dépassait pas ~8 % d'un cœur. En réalité `dockerd` et `containerd` consommaient chacun ~42 % d'un cœur, en dehors de tout conteneur. Dozzle arrêté n'a rien changé ; Netdata arrêté a fait passer `dockerd` de ~29 % à ~3-6 % : c'est son collecteur Docker (une interrogation de l'API toutes les 2 s) qui sollicitait le démon, d'où le passage à 10 s.
+
+**Résultat mesuré après le passage à 10 s** (Netdata recréé avec `go.d/docker.conf`) :
+
+| | `dockerd` | `containerd` | Système (4 cœurs) |
+|---|---|---|---|
+| Collecte Docker à 2 s | ~42 % d'un cœur | ~42 % | ~24 % |
+| Collecte Docker à 10 s | **~14,6 %** (`top`, moyenne sur 60 s) | ~15 % | **~10 %** |
+
+Gain : environ ×3 sur Docker, ×2,5 sur le CPU total du Pi. **Décision : on reste à 10 s** (réactivité de la détection d'incident, et ~15 % d'un cœur sur 4 est confortable). Le levier restant est l'intervalle : chaque collecte coûte ~1 s de CPU à `dockerd`, donc la moyenne est inversement proportionnelle à l'intervalle (30 s ≈ 5 %, 60 s ≈ 2 %, au prix d'un état de conteneur rafraîchi moins vite). Passer à 30 s demanderait de changer `update_every` dans `netdata/go.d/docker.conf` **et** d'élargir à 60 s la fenêtre de lecture des états dans le dashboard (`latest(chart, 20)`), sinon des cartes pourraient afficher « inconnu ».
+
+**Mesurer correctement** : la consommation est **en pics** (~1 s de CPU toutes les 10 s). Un instantané de 5 s est trompeur (4 % ou 25 % selon qu'une collecte tombe dans la fenêtre). Utiliser une fenêtre de 60 s et lire la **deuxième** ligne (la première affiche la valeur depuis le démarrage du processus) ; sur le Pi, la colonne `%CPU` est la 9e :
 ```bash
-top -b -n 2 -d 5 | awk '$NF=="dockerd" || $NF=="containerd"' | tail -2
+top -b -n 2 -d 60 | awk '$NF=="dockerd" || $NF=="containerd"' | tail -2
 ```
-Comparer avant/après avoir arrêté le conteneur suspect (`docker compose stop <service>`), puis le relancer. Dans le dashboard, les états de conteneurs sont lus sur une fenêtre de 20 s (`latest(chart, 20)`) pour tolérer cette collecte à 10 s.
+Pour trouver un coupable : comparer avant/après avoir arrêté le conteneur suspect (`docker compose stop <service>`), puis le relancer. Avant de mesurer un réglage Netdata, vérifier qu'il est bien appliqué : le `update_every` des graphiques `docker_local.*` doit valoir 10 dans `http://localhost:19999/api/v1/charts` (une première mesure avait été faite par erreur sur l'ancien état, le conteneur n'ayant pas été recréé). Juste après un redémarrage, Netdata consomme davantage pendant quelques minutes (le ML réentraîne ses modèles) : attendre avant de mesurer. Dans le dashboard, les états de conteneurs sont lus sur une fenêtre de 20 s (`latest(chart, 20)`) pour tolérer cette collecte à 10 s.
 
 Le dashboard met aussi en pause son rafraîchissement quand l'onglet est caché (`document.hidden`) : un aperçu ouvert dans un onglet en arrière-plan ne s'actualise donc pas.
 
