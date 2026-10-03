@@ -62,6 +62,8 @@ services:
       - DO_NOT_TRACK=1
     volumes:
       - netdataconfig:/etc/netdata
+      - ./netdata/netdata.conf:/etc/netdata/netdata.conf:ro
+      - ./netdata/go.d/docker.conf:/etc/netdata/go.d/docker.conf:ro
       - netdatalib:/var/lib/netdata
       - netdatacache:/var/cache/netdata
       - /etc/passwd:/host/etc/passwd:ro

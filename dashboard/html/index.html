@@ -66,6 +66,7 @@
   svg.spark polyline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
 
   h2.section { margin-top: 8px; }
+  h2.tech-title { margin-top: 28px; }
   details.app {
     background: var(--card);
     border: 1px solid var(--border);
@@ -165,7 +166,10 @@
 </div>
 
 <h2 class="section">Applications</h2>
-<div id="apps"><p class="muted">Chargement…</p></div>
+<div id="apps-main"><p class="muted">Chargement…</p></div>
+
+<h2 class="section tech-title">Outils techniques et maintenance</h2>
+<div id="apps-tech"></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -177,13 +181,14 @@ let meta = {};
 let openApps = new Set();
 try { openApps = new Set(JSON.parse(localStorage.getItem('openApps') || '[]')); } catch (e) {}
 
+// category: 'main' = applications, 'tech' = outils techniques et maintenance
 const APPS = [
-  { id: 'www', name: 'Site principal', url: 'https://www.maximelabatut.com', members: ['www', 'cloudflared-www'] },
-  { id: 'gamevault', name: 'GameVault', url: 'https://gamevault.maximelabatut.com', members: ['gamevault', 'cloudflared-gamevault'] },
-  { id: 'web2', name: 'Web2', url: 'https://web2.maximelabatut.com', members: ['web2', 'cloudflared-web2'] },
-  { id: 'dashboard', name: 'Dashboard', url: 'https://config.maximelabatut.com', members: ['dashboard', 'dashboard-sync', 'cloudflared-config'] },
-  { id: 'netdata', name: 'Netdata', url: 'https://netdata.maximelabatut.com', members: ['netdata', 'cloudflared-netdata'] },
-  { id: 'dozzle', name: 'Logs (Dozzle)', url: 'https://logs.maximelabatut.com', members: ['dozzle', 'cloudflared-logs'] }
+  { id: 'www', category: 'main', name: 'Site principal', url: 'https://www.maximelabatut.com', members: ['www', 'cloudflared-www'] },
+  { id: 'gamevault', category: 'main', name: 'GameVault', url: 'https://gamevault.maximelabatut.com', members: ['gamevault', 'cloudflared-gamevault'] },
+  { id: 'web2', category: 'main', name: 'Web2', url: 'https://web2.maximelabatut.com', members: ['web2', 'cloudflared-web2'] },
+  { id: 'dashboard', category: 'tech', name: 'Dashboard', url: 'https://config.maximelabatut.com', members: ['dashboard', 'dashboard-sync', 'cloudflared-config'] },
+  { id: 'netdata', category: 'tech', name: 'Netdata', url: 'https://netdata.maximelabatut.com', members: ['netdata', 'cloudflared-netdata'] },
+  { id: 'dozzle', category: 'tech', name: 'Logs (Dozzle)', url: 'https://logs.maximelabatut.com', members: ['dozzle', 'cloudflared-logs'] }
 ];
 
 const DESCRIPTIONS = {
@@ -224,8 +229,8 @@ async function query(chart, params) {
   return (await r.json()).result;
 }
 
-async function latest(chart) {
-  const res = await query(chart, 'after=-3&points=1&group=average');
+async function latest(chart, window = 3) {
+  const res = await query(chart, 'after=-' + window + '&points=1&group=average');
   const row = res.data[0];
   if (!row) throw new Error('no data ' + chart);
   const out = {};
@@ -361,7 +366,7 @@ async function updateContainers() {
   await loadMeta().catch(() => {});
   const rows = await Promise.all(names.map(async name => {
     const [st, cpu] = await Promise.allSettled([
-      latest('docker_local.container_' + name + '_state'),
+      latest('docker_local.container_' + name + '_state', 20),
       latest('cgroup_' + name + '.cpu')
     ]);
     return {
@@ -378,11 +383,13 @@ async function updateContainers() {
     return { ...a, rows: a.members.map(n => byName[n]).filter(Boolean) };
   });
   const others = rows.filter(r => !used.has(r.name));
-  if (others.length) groups.push({ id: 'others', name: 'Autres conteneurs', url: null, rows: others });
-  $('apps').innerHTML = groups.map(groupHtml).join('');
+  if (others.length) groups.push({ id: 'others', category: 'tech', name: 'Autres conteneurs', url: null, rows: others });
+  $('apps-main').innerHTML = groups.filter(g => g.category === 'main').map(groupHtml).join('');
+  $('apps-tech').innerHTML = groups.filter(g => g.category === 'tech').map(groupHtml).join('');
 }
 
 async function refresh() {
+  if (document.hidden) return;
   const jobs = [updateTemperature(), updateSystem()];
   if (tick % 2 === 0) jobs.push(updateContainers());
   tick++;
@@ -395,6 +402,7 @@ async function refresh() {
 
 refresh();
 setInterval(refresh, 5000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { tick = 0; refresh(); } });
 </script>
 </body>
 </html>
