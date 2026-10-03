@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Serveur maxime</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --card: #1a1d24;
+    --border: #2a2d35;
+    --text: #e8e8ea;
+    --muted: #8a8f98;
+    --accent: #5b8cff;
+    --ok: #3fb950;
+    --warn: #e3a008;
+    --bad: #f85149;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    padding: 24px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  h1 { font-size: 1.6rem; font-weight: 600; }
+  h2 { font-size: 0.8rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 12px; }
+  .muted { color: var(--muted); font-size: 0.85rem; }
+  .pill {
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--card);
+  }
+  .pill.ok { color: var(--ok); }
+  .pill.bad { color: var(--bad); }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .big { font-size: 2.2rem; font-weight: 600; line-height: 1.1; }
+  .big small { font-size: 1rem; font-weight: 400; color: var(--muted); }
+  .bar { height: 8px; border-radius: 4px; background: var(--border); margin: 14px 0 8px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width 0.4s, background 0.4s; }
+  svg.spark { width: 100%; height: 48px; margin-top: 10px; display: block; }
+  svg.spark polyline { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; font-size: 0.8rem; }
+  tr:last-child td { border-bottom: none; }
+  .badge { font-size: 0.75rem; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--border); }
+  .badge.running { color: var(--ok); border-color: var(--ok); }
+  .badge.exited, .badge.dead { color: var(--bad); border-color: var(--bad); }
+  .badge.other { color: var(--warn); border-color: var(--warn); }
+  .scroll { overflow-x: auto; }
+  .links { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+  a.link {
+    display: block;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+  a.link:hover { border-color: var(--accent); transform: translateY(-2px); }
+  a.link span { display: block; color: var(--muted); font-size: 0.75rem; margin-top: 3px; }
+  section { margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>maxime</h1>
+    <p class="muted" id="sub">Raspberry Pi 4 · uptime —</p>
+  </div>
+  <div class="pill" id="status">Connexion…</div>
+</header>
+
+<div class="grid">
+  <div class="card">
+    <h2>Température CPU</h2>
+    <div class="big" id="temp">—</div>
+    <svg class="spark" id="temp-spark" viewBox="0 0 200 48" preserveAspectRatio="none"><polyline points=""/></svg>
+    <p class="muted" id="fan" style="margin-top:8px">Ventilateur : —</p>
+  </div>
+  <div class="card">
+    <h2>Processeur</h2>
+    <div class="big" id="cpu">—</div>
+    <div class="bar"><div id="cpu-bar"></div></div>
+    <p class="muted" id="load">Charge : —</p>
+  </div>
+  <div class="card">
+    <h2>Mémoire</h2>
+    <div class="big" id="ram">—</div>
+    <div class="bar"><div id="ram-bar"></div></div>
+    <p class="muted" id="ram-detail">—</p>
+  </div>
+  <div class="card">
+    <h2>Stockage (carte SD)</h2>
+    <div class="big" id="disk">—</div>
+    <div class="bar"><div id="disk-bar"></div></div>
+    <p class="muted" id="disk-detail">—</p>
+  </div>
+</div>
+
+<section class="card">
+  <h2>Conteneurs</h2>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>Nom</th><th>État</th><th>CPU</th></tr></thead>
+      <tbody id="containers"><tr><td colspan="3" class="muted">Chargement…</td></tr></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Raccourcis</h2>
+  <div class="links">
+    <a class="link" href="https://www.maximelabatut.com">Site principal<span>www.maximelabatut.com</span></a>
+    <a class="link" href="https://gamevault.maximelabatut.com">GameVault<span>gamevault.maximelabatut.com</span></a>
+    <a class="link" href="https://web2.maximelabatut.com">Web2<span>web2.maximelabatut.com</span></a>
+    <a class="link" href="https://logs.maximelabatut.com">Logs (Dozzle)<span>logs.maximelabatut.com</span></a>
+    <a class="link" href="https://netdata.maximelabatut.com">Netdata complet<span>netdata.maximelabatut.com</span></a>
+  </div>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+const COLORS = { ok: 'var(--ok)', warn: 'var(--warn)', bad: 'var(--bad)' };
+let names = [];
+let tick = 0;
+
+async function query(chart, params) {
+  const url = '/api/v1/data?chart=' + encodeURIComponent(chart) +
+    '&format=json&options=jsonwrap&' + params;
+  const r = await fetch(url, { cache: 'no-store' });
+  if (!r.ok) throw new Error(chart + ' ' + r.status);
+  return (await r.json()).result;
+}
+
+async function latest(chart) {
+  const res = await query(chart, 'after=-3&points=1&group=average');
+  const row = res.data[0];
+  if (!row) throw new Error('no data ' + chart);
+  const out = {};
+  res.labels.forEach((label, i) => { out[label] = row[i]; });
+  return out;
+}
+
+const sumValues = o => Object.entries(o).reduce((s, [k, v]) => k === 'time' ? s : s + (v || 0), 0);
+
+function setBar(id, pct) {
+  const el = $(id);
+  el.style.width = Math.min(100, Math.max(0, pct)) + '%';
+  el.style.background = pct >= 90 ? COLORS.bad : pct >= 75 ? COLORS.warn : 'var(--accent)';
+}
+
+function fmtUptime(s) {
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  return (d ? d + ' j ' : '') + h + ' h ' + m + ' min';
+}
+
+function fanEstimate(t) {
+  if (t >= 65) return '100 %';
+  if (t >= 60) return '55 %';
+  if (t >= 55) return '30 %';
+  return 'arrêté (< 55 °C)';
+}
+
+async function updateTemperature() {
+  const chart = 'sensors.temperature_cpu_thermal-virtual-0_temp1_input';
+  const [now, hist] = await Promise.all([
+    latest(chart),
+    query(chart, 'after=-1800&points=60&group=average')
+  ]);
+  const t = now.input;
+  $('temp').innerHTML = t.toFixed(1) + ' <small>°C</small>';
+  $('temp').style.color = t >= 65 ? COLORS.bad : t >= 55 ? COLORS.warn : COLORS.ok;
+  $('fan').textContent = 'Ventilateur (estimé d\'après la courbe) : ' + fanEstimate(t);
+  const vals = hist.data.slice().reverse().map(r => r[1]).filter(v => v != null);
+  if (vals.length > 1) {
+    const min = Math.min(...vals, 30), max = Math.max(...vals, 70);
+    const pts = vals.map((v, i) =>
+      (i / (vals.length - 1) * 200).toFixed(1) + ',' + (46 - (v - min) / (max - min) * 44).toFixed(1)
+    ).join(' ');
+    $('temp-spark').querySelector('polyline').setAttribute('points', pts);
+  }
+}
+
+async function updateSystem() {
+  const [cpu, load, ram, disk, up] = await Promise.all([
+    latest('system.cpu'), latest('system.load'), latest('system.ram'),
+    latest('disk_space./'), latest('system.uptime')
+  ]);
+  const cpuPct = sumValues(cpu);
+  $('cpu').innerHTML = cpuPct.toFixed(0) + ' <small>%</small>';
+  setBar('cpu-bar', cpuPct);
+  $('load').textContent = 'Charge : ' + load.load1.toFixed(2) + ' · ' + load.load5.toFixed(2) + ' · ' + load.load15.toFixed(2) + ' (4 cœurs)';
+
+  const ramTotal = sumValues(ram);
+  const ramPct = ram.used / ramTotal * 100;
+  $('ram').innerHTML = ramPct.toFixed(0) + ' <small>%</small>';
+  setBar('ram-bar', ramPct);
+  $('ram-detail').textContent = (ram.used / 1024).toFixed(2) + ' Go utilisés sur ' + (ramTotal / 1024).toFixed(1) + ' Go (cache : ' + (ram.cached / 1024).toFixed(1) + ' Go)';
+
+  const diskTotal = sumValues(disk);
+  const diskPct = disk.used / diskTotal * 100;
+  $('disk').innerHTML = diskPct.toFixed(0) + ' <small>%</small>';
+  setBar('disk-bar', diskPct);
+  $('disk-detail').textContent = disk.used.toFixed(1) + ' Go utilisés · ' + disk.avail.toFixed(1) + ' Go libres';
+
+  $('sub').textContent = 'Raspberry Pi 4 · uptime ' + fmtUptime(up.uptime);
+}
+
+async function loadNames() {
+  const r = await fetch('/api/v1/charts', { cache: 'no-store' });
+  const d = await r.json();
+  names = Object.keys(d.charts)
+    .map(k => (k.match(/^docker_local\.container_(.+)_state$/) || [])[1])
+    .filter(Boolean)
+    .sort();
+}
+
+function stateOf(o) {
+  let best = 'other', max = -1;
+  Object.entries(o).forEach(([k, v]) => { if (k !== 'time' && v > max) { max = v; best = k; } });
+  return best;
+}
+
+async function updateContainers() {
+  if (!names.length) await loadNames();
+  const rows = await Promise.all(names.map(async name => {
+    const [st, cpu] = await Promise.allSettled([
+      latest('docker_local.container_' + name + '_state'),
+      latest('cgroup_' + name + '.cpu')
+    ]);
+    return {
+      name,
+      state: st.status === 'fulfilled' ? stateOf(st.value) : 'inconnu',
+      cpu: cpu.status === 'fulfilled' ? sumValues(cpu.value) : null
+    };
+  }));
+  $('containers').innerHTML = rows.map(r => {
+    const cls = r.state === 'running' ? 'running' : (r.state === 'exited' || r.state === 'dead') ? 'exited' : 'other';
+    const cpu = r.cpu === null ? '—' : r.cpu.toFixed(1) + ' %';
+    return '<tr><td>' + r.name + '</td><td><span class="badge ' + cls + '">' + r.state + '</span></td><td>' + cpu + '</td></tr>';
+  }).join('');
+}
+
+async function refresh() {
+  const jobs = [updateTemperature(), updateSystem()];
+  if (tick % 2 === 0) jobs.push(updateContainers());
+  tick++;
+  const results = await Promise.allSettled(jobs);
+  const ok = results.every(r => r.status === 'fulfilled');
+  const pill = $('status');
+  pill.className = 'pill ' + (ok ? 'ok' : 'bad');
+  pill.textContent = ok ? 'En ligne · ' + new Date().toLocaleTimeString('fr-FR') : 'Données indisponibles';
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>
