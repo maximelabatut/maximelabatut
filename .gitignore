@@ -1,3 +1,6 @@
 .env
 .DS_Store
 ._*
+
+www/html/data/status.json
+dashboard/data/containers.json
