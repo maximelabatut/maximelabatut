@@ -26,6 +26,15 @@ services:
     volumes:
       - ./web2/html:/usr/share/nginx/html:ro
 
+  config:
+    image: nginx
+    container_name: config
+    restart: unless-stopped
+    ports:
+      - "8083:80"
+    volumes:
+      - ./config/html:/usr/share/nginx/html:ro
+
   cloudflared-www:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-www
@@ -46,3 +55,10 @@ services:
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_WEB2}
+
+  cloudflared-config:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-config
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_CONFIG}
