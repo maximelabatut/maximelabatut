@@ -118,6 +118,8 @@
   th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
   th { color: var(--muted); font-weight: 500; font-size: 0.8rem; }
   tr:last-child td { border-bottom: none; }
+  .app-body td:nth-child(2), .app-body td:last-child { white-space: nowrap; }
+  .app-body td:last-child, .app-body th:last-child { text-align: right; font-variant-numeric: tabular-nums; }
   td a.log { color: var(--text); text-decoration: none; border-bottom: 1px dashed var(--muted); }
   td a.log:hover { color: var(--accent); border-bottom-color: var(--accent); }
   td.desc { color: var(--muted); font-size: 0.82rem; }
