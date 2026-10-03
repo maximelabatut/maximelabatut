@@ -190,7 +190,8 @@ const APPS = [
   { id: 'web2', category: 'main', name: 'Web2', url: 'https://web2.maximelabatut.com', members: ['web2', 'cloudflared-web2'] },
   { id: 'dashboard', category: 'tech', name: 'Dashboard', url: 'https://config.maximelabatut.com', members: ['dashboard', 'dashboard-sync', 'cloudflared-config'] },
   { id: 'netdata', category: 'tech', name: 'Netdata', url: 'https://netdata.maximelabatut.com', members: ['netdata', 'cloudflared-netdata'] },
-  { id: 'dozzle', category: 'tech', name: 'Logs (Dozzle)', url: 'https://logs.maximelabatut.com', members: ['dozzle', 'cloudflared-logs'] }
+  { id: 'dozzle', category: 'tech', name: 'Logs (Dozzle)', url: 'https://logs.maximelabatut.com', members: ['dozzle', 'cloudflared-logs'] },
+  { id: 'uptime', category: 'tech', name: 'Uptime Kuma', url: 'https://uptime.maximelabatut.com', members: ['uptime-kuma', 'cloudflared-uptime'] }
 ];
 
 const DESCRIPTIONS = {
@@ -207,7 +208,9 @@ const DESCRIPTIONS = {
   'cloudflared-netdata': 'Publie Netdata (netdata.maximelabatut.com)',
   'netdata': 'Collecte les métriques du Pi : température, CPU, RAM, disque, réseau, conteneurs',
   'dozzle': 'Visionneuse de logs en direct de tous les conteneurs (lecture seule)',
-  'cloudflared-logs': 'Publie Dozzle (logs.maximelabatut.com)'
+  'cloudflared-logs': 'Publie Dozzle (logs.maximelabatut.com)',
+  'uptime-kuma': 'Surveille les sites toutes les minutes et envoie une alerte sur le téléphone (ntfy) en cas de panne',
+  'cloudflared-uptime': 'Publie Uptime Kuma (uptime.maximelabatut.com)'
 };
 
 function kindOf(name) {

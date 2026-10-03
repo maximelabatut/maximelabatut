@@ -33,11 +33,15 @@ Il enchaîne tout seul : envoi du `.env`, mise à jour système, Docker, clone G
 - Finder → `Cmd+K` → `smb://maxime.local/docker`
 - `vcgencmd get_throttled` → `throttled=0x0`
 
+### 4. Reconfigurer Uptime Kuma (~10 min, si les alertes sont utilisées)
+
+Ses données (compte administrateur, canal ntfy, sondes) ne sont pas dans git : sur une carte vierge, refaire les étapes 3 à 6 de la section « Alertes : Uptime Kuma + ntfy » de `docs/ajouter-un-site.md`. Garder le nom du canal ntfy dans le gestionnaire de mots de passe.
+
 ## Prérequis à garder en état
 
 | Quoi | Où | Mise à jour |
 |---|---|---|
-| `.env` (6 tokens) | `~/Desktop/raspberrypi/.env` | après tout changement de token : `scp maxime@maxime.local:~/docker/.env ~/Desktop/raspberrypi/.env && chmod 600 ~/Desktop/raspberrypi/.env` |
+| `.env` (7 tokens) | `~/Desktop/raspberrypi/.env` | après tout changement de token : `scp maxime@maxime.local:~/docker/.env ~/Desktop/raspberrypi/.env && chmod 600 ~/Desktop/raspberrypi/.env` |
 | `restaurer-pi.sh` | `~/Desktop/raspberrypi/` (copie du repo : `mac/restaurer-pi.sh`) | si modifié dans le repo |
 | `restore.sh` | repo GitHub (le script Mac le télécharge) ; copie locale en secours dans `~/Desktop/raspberrypi/` | si modifié dans le repo |
 | Configuration | GitHub, à jour | `git status` et `git log origin/main..HEAD --oneline` sur le Pi doivent être vides |
@@ -72,7 +76,7 @@ sed -i -e '$a\' .env
 printf 'DOCKER_GID=%s\n' "$(getent group docker | cut -d: -f3)" >> .env
 awk -F= 'NF>1 {print $1, length($2)}' .env
 ```
-Contrôle : 6 tokens de 184 caractères et `DOCKER_GID 3`, chacun sur sa ligne. Puis Samba :
+Contrôle : 7 tokens de 184 caractères et `DOCKER_GID 3`, chacun sur sa ligne. Puis Samba :
 ```bash
 sudo apt install -y samba samba-common-bin
 sudo tee -a /etc/samba/smb.conf > /dev/null <<'EOF'

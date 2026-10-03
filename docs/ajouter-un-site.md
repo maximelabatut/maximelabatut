@@ -14,7 +14,7 @@ La procédure complète (rapide et manuelle) est dans **`restauration-carte-sd.m
 
 Rappels propres au projet (détails dans cette doc) :
 - Les tunnels Cloudflare, Access et le MFA ne dépendent pas de la carte : rien à refaire côté Cloudflare.
-- Il faut un token par tunnel dans `.env` : `WWW`, `GAMEVAULT`, `WEB2`, `CONFIG`, `LOGS`, `NETDATA`. `DOCKER_GID` est recalculé à chaque installation (jamais restauré), sur sa propre ligne : si la dernière ligne du fichier n'a pas de retour à la ligne final, la valeur se colle au token précédent et le corrompt (`Provided Tunnel token is not valid`).
+- Il faut un token par tunnel dans `.env` : `WWW`, `GAMEVAULT`, `WEB2`, `CONFIG`, `LOGS`, `NETDATA`, `UPTIME`. `DOCKER_GID` est recalculé à chaque installation (jamais restauré), sur sa propre ligne : si la dernière ligne du fichier n'a pas de retour à la ligne final, la valeur se colle au token précédent et le corrompt (`Provided Tunnel token is not valid`).
 - Les dossiers `www/html/data` et `dashboard/data` (remplis par `www-status` et `dashboard-sync`, non versionnés) sont recréés par `mkdir -p` avant le premier lancement, pour qu'ils appartiennent à `maxime`.
 - Le mot de passe Samba est redéfini à la restauration (`smbpasswd`) ; s'il change, supprimer l'ancienne entrée `maxime.local` du Trousseau d'accès du Mac avant de se reconnecter au partage.
 
@@ -103,15 +103,16 @@ sudo systemctl enable docker
 
 ---
 
-## Monitoring : dashboard, Netdata et Dozzle
+## Monitoring : dashboard, Netdata, Dozzle et Uptime Kuma
 
-Trois services complémentaires, tous derrière Cloudflare Access (cf section suivante) :
+Quatre services complémentaires, tous derrière Cloudflare Access (cf section suivante) :
 
 | URL | Service | Rôle | Port local |
 |---|---|---|---|
 | `config.maximelabatut.com` | Dashboard sur mesure (nginx + page HTML) | Vue d'ensemble : température CPU + courbe, CPU, RAM, stockage, et un tiroir par application (conteneur + tunnel, état, CPU, lien vers les logs) | 8083 |
 | `netdata.maximelabatut.com` | Netdata | Métriques détaillées avec historique (capteurs, réseau, disque, alertes) | 19999 (réseau `host`) |
 | `logs.maximelabatut.com` | Dozzle | Logs en direct de tous les conteneurs (lecture seule) | 8084 (lié à `127.0.0.1` uniquement) |
+| `uptime.maximelabatut.com` | Uptime Kuma | Surveillance des sites toutes les minutes, alertes sur le téléphone via ntfy (cf section « Alertes ») | 8085 (lié à `127.0.0.1` uniquement) |
 
 ### Comment ça marche
 
@@ -139,6 +140,7 @@ Chaque application est un tiroir (`<details>`) regroupant son conteneur nginx et
 | Dashboard | `dashboard` + `dashboard-sync` + `cloudflared-config` |
 | Netdata | `netdata` + `cloudflared-netdata` |
 | Logs (Dozzle) | `dozzle` + `cloudflared-logs` |
+| Uptime Kuma | `uptime-kuma` + `cloudflared-uptime` |
 | Autres conteneurs | tout conteneur non listé (ajouté automatiquement dans cette catégorie) |
 
 Un conteneur qui apparaît dans « Autres conteneurs » avec « Image : ... » à la place du rôle manque à `APPS` / `DESCRIPTIONS` dans `dashboard/html/index.html`.
@@ -157,17 +159,43 @@ Sans l'étape 1, les conteneurs apparaissent quand même, dans le tiroir « Autr
 
 ### Tunnels et routes
 
-Un tunnel Cloudflare par sous-domaine (`config`, `netdata`, `logs`), chacun avec son token dans `.env` (`CLOUDFLARE_TUNNEL_TOKEN_CONFIG`, `CLOUDFLARE_TUNNEL_TOKEN_NETDATA`, `CLOUDFLARE_TUNNEL_TOKEN_LOGS`) et son conteneur `cloudflared-config` / `cloudflared-netdata` / `cloudflared-logs`. Routes (Published application routes) :
+Un tunnel Cloudflare par sous-domaine (`config`, `netdata`, `logs`, `uptime`), chacun avec son token dans `.env` (`CLOUDFLARE_TUNNEL_TOKEN_CONFIG`, `_NETDATA`, `_LOGS`, `_UPTIME`) et son conteneur `cloudflared-config` / `cloudflared-netdata` / `cloudflared-logs` / `cloudflared-uptime`. Routes (Published application routes) :
 
 | Hostname | Service |
 |---|---|
 | `config.maximelabatut.com` | `http://localhost:8083` |
 | `netdata.maximelabatut.com` (tunnel `netdata`) | `http://localhost:19999` |
 | `logs.maximelabatut.com` | `http://localhost:8084` |
+| `uptime.maximelabatut.com` | `http://localhost:8085` |
 
 ### Modifier le dashboard
 
 Éditer `dashboard/html/index.html` directement via le partage Samba (`/Volumes/docker/dashboard/html/`) : nginx le sert en lecture seule à chaud, un simple rechargement de la page suffit (si le navigateur garde l'ancienne version : `Cmd+Maj+R`). Une modification de `nginx.conf` demande `docker compose restart dashboard`, une modification de `sync.sh` demande `docker compose restart dashboard-sync`.
+
+### Alertes : Uptime Kuma + ntfy
+
+**Uptime Kuma** (`uptime.maximelabatut.com`, image `louislam/uptime-kuma:2`, base **SQLite**, données dans `uptime-kuma/data/`, port `127.0.0.1:8085`) surveille les sites et envoie une alerte sur le téléphone via **ntfy** (notifications push). Le conteneur déclare `extra_hosts: host.docker.internal:host-gateway` pour pouvoir sonder des services du Pi (ports en réseau `host`).
+
+**Mise en place (déjà faite, à refaire après une restauration)**
+
+1. Créer le tunnel `uptime` (Zero Trust → Networks → Tunnels) et récupérer son token → `CLOUDFLARE_TUNNEL_TOKEN_UPTIME` dans `.env`.
+2. **Avant** de publier la route : ajouter `uptime.maximelabatut.com` aux destinations de l'application Cloudflare Access (sinon le premier visiteur pourrait créer le compte administrateur), puis ajouter la route `uptime.maximelabatut.com` → `http://localhost:8085`.
+3. `docker compose up -d`, puis ouvrir `https://uptime.maximelabatut.com` : choisir **SQLite**, créer le compte administrateur (mot de passe dans le gestionnaire de mots de passe).
+4. ntfy : générer un nom de canal secret (`echo "homelab-$(openssl rand -hex 12)"`), installer l'application ntfy sur le téléphone et s'abonner au canal. Le nom du canal est le « mot de passe » : ne pas le partager ni le mettre dans git ou `.env` (Uptime Kuma ne lit pas ses réglages dans `.env` ; la notification est stockée dans sa base). Test indépendant depuis le Mac, sans laisser le canal dans l'historique :
+   ```bash
+   read -r -s -p "Canal ntfy : " T; echo
+   curl -d "Test depuis le Mac" "https://ntfy.sh/$T"; echo
+   unset T
+   ```
+5. Dans Uptime Kuma (menu du compte → **Paramètres → Notifications → Configurer une notification**) : type **Ntfy**, serveur `https://ntfy.sh`, le canal, priorité 4, cocher **Activé par défaut** et **Appliquer à toutes les sondes existantes**, puis **Tester**.
+6. Ajouter les **sondes** (type HTTP(s), intervalle 60 s, nouvelles tentatives 2, soit une alerte après ~3 min) : `https://www.maximelabatut.com`, `https://gamevault.maximelabatut.com`, `https://web2.maximelabatut.com` (test de bout en bout, tunnel compris). Pour les outils derrière Access, les adresses publiques ne conviennent pas (Access répond avant le tunnel, la sonde resterait verte même tunnel tombé) : utiliser `http://host.docker.internal:8083` (dashboard) et `http://host.docker.internal:19999` (Netdata). Dozzle (lié à `127.0.0.1`) n'est pas joignable depuis le conteneur.
+
+**Test réel (validé le 3 oct. 2026)** : `docker compose stop web2` → au bout de ~3 min, notification d'erreur **502** (le tunnel répond mais `web2` est arrêté) ; `docker compose start web2` → notification de retour **200**.
+
+**Limites et restauration**
+- Si le **Pi entier** tombe, Uptime Kuma tombe avec lui : aucune alerte ne part. Il faudrait une surveillance externe (heartbeat vers un service qui alerte en l'absence de signal).
+- `uptime-kuma/data/` n'est **pas versionné** (il contient le compte administrateur et le canal ntfy). Après une restauration sur une carte vierge, il faut refaire les étapes 3 à 6 (~10 min), ou sauvegarder `uptime-kuma/data/kuma.db` sur le Mac. Le dossier est créé par `restore.sh` pour qu'il appartienne à `maxime`.
+- Les sondes affichent le code HTTP renvoyé : `502` = tunnel joignable mais application arrêtée, `1033`/timeout = tunnel ou Pi injoignable.
 
 ### Consommation CPU de Netdata (réglages et diagnostic)
 
@@ -259,7 +287,7 @@ mkdir -p ~/docker/www/html/data ~/docker/dashboard/data
 ### Application Access (Zero Trust → Access controls → Applications → Add an application)
 
 1. Type **Self-hosted and private**, sous-onglet **Public DNS**
-2. Destinations : `config.maximelabatut.com`, `logs.maximelabatut.com`, `netdata.maximelabatut.com` (tout nouveau sous-domaine sensible doit y être ajouté)
+2. Destinations : `config.maximelabatut.com`, `logs.maximelabatut.com`, `netdata.maximelabatut.com`, `uptime.maximelabatut.com` (tout nouveau sous-domaine sensible doit y être ajouté)
 3. Policy : **Allow**, règle **Emails** = ton adresse (ex. policy « Moi uniquement »)
 4. Authentication : laisser « Accept all available identity providers » (One-time PIN par email)
 5. MFA : **Customize MFA settings** → Authenticator application, durée 24 h
@@ -281,7 +309,7 @@ Ouvrir le site en navigation privée : email, code reçu par mail, code de l'app
 ## 0. Convention à respecter
 
 - Dossier du service : `~/docker/<nom-service>/html`
-- Port local : le prochain port libre (8080 = www, 8081 = gamevault, 8082 = web2, 8083 = dashboard (`config.`), 8084 = Dozzle (`logs.`), 19999 = Netdata (réseau `host`), → 8085 pour le suivant, etc.)
+- Port local : le prochain port libre (8080 = www, 8081 = gamevault, 8082 = web2, 8083 = dashboard (`config.`), 8084 = Dozzle (`logs.`), 8085 = Uptime Kuma (`uptime.`), 19999 = Netdata (réseau `host`), → 8086 pour le suivant, etc.)
 - Sous-domaine : `<nom-service>.maximelabatut.com`
 - Nom du tunnel Cloudflare : un nom explicite (ex: `raspberry-<nom-service>`)
 - Nom de variable token dans `.env` : `CLOUDFLARE_TUNNEL_TOKEN_<NOM_SERVICE>` (en majuscules)

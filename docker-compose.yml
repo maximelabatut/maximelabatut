@@ -94,6 +94,17 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
+  uptime-kuma:
+    image: louislam/uptime-kuma:2
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8085:3001"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./uptime-kuma/data:/app/data
+
   cloudflared-www:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-www
@@ -135,6 +146,13 @@ services:
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_NETDATA}
+
+  cloudflared-uptime:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-uptime
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_UPTIME}
 
 volumes:
   netdataconfig:

@@ -11,6 +11,8 @@ Des sites et des outils qui tournent à la maison, publiés sans ouvrir un seul 
   <img src="https://img.shields.io/badge/Netdata-00AB44?logo=netdata&logoColor=white&style=for-the-badge" alt="Netdata">
   <img src="https://img.shields.io/badge/Samba-SMB-blue?style=for-the-badge" alt="Samba">
   <img src="https://img.shields.io/badge/Dozzle-logs-yellow?style=for-the-badge" alt="Dozzle">
+  <img src="https://img.shields.io/badge/Uptime%20Kuma-5CDD8B?logo=uptimekuma&logoColor=white&style=for-the-badge" alt="Uptime Kuma">
+  <img src="https://img.shields.io/badge/ntfy-alertes-338574?style=for-the-badge" alt="ntfy">
   <img src="https://img.shields.io/badge/Raspberry%20Pi%20OS-64%20bits-C51A4A?logo=raspberrypi&logoColor=white&style=for-the-badge" alt="Raspberry Pi OS 64 bits">
 </p>
 
@@ -23,6 +25,7 @@ Ce dépôt contient **toute la configuration de mon serveur personnel** : les co
 - **Un conteneur par application**, chacun avec son propre **tunnel Cloudflare** : aucun port n'est ouvert sur ma box.
 - **Une page d'accueil** avec le statut en direct des services.
 - **Un dashboard sur mesure** : température du CPU, charge, mémoire, stockage, un tiroir par application (conteneur + tunnel), et accès aux logs en un clic.
+- **Des alertes sur téléphone** (Uptime Kuma + ntfy) quand un site ne répond plus.
 - **Des outils d'administration protégés** par Cloudflare Access + authentification à deux facteurs.
 - **Une restauration en une commande** si la carte SD lâche.
 - **Les fichiers de tous les services** modifiables depuis le Mac via Samba.
@@ -37,6 +40,7 @@ Ce dépôt contient **toute la configuration de mon serveur personnel** : les co
 | `config.maximelabatut.com` | Dashboard de supervision | Cloudflare Access + MFA |
 | `netdata.maximelabatut.com` | Métriques détaillées (Netdata) | Cloudflare Access + MFA |
 | `logs.maximelabatut.com` | Logs des conteneurs (Dozzle) | Cloudflare Access + MFA |
+| `uptime.maximelabatut.com` | Surveillance et alertes (Uptime Kuma) | Cloudflare Access + MFA |
 
 ## Architecture
 
@@ -59,10 +63,10 @@ Le Pi ouvre lui-même la connexion vers Cloudflare. Rien n'est exposé directeme
 |---|---|
 | Matériel | [Raspberry Pi 4](https://www.raspberrypi.com/) (4 Go), boîtier [Argon ONE V2](https://argon40.com/) (ventilateur régulé) |
 | Système | Raspberry Pi OS Lite 64 bits |
-| Conteneurs | [Docker Compose](https://docs.docker.com/compose/), 14 conteneurs |
+| Conteneurs | [Docker Compose](https://docs.docker.com/compose/), 16 conteneurs |
 | Serveur web | [nginx](https://nginx.org/) |
 | Réseau et sécurité | [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/), [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/access-controls/) avec MFA |
-| Supervision | [Netdata](https://www.netdata.cloud/) (métriques), [Dozzle](https://dozzle.dev/) (logs), dashboard en HTML/JavaScript sans dépendance |
+| Supervision | [Netdata](https://www.netdata.cloud/) (métriques), [Dozzle](https://dozzle.dev/) (logs), [Uptime Kuma](https://github.com/louislam/uptime-kuma) (surveillance) avec alertes [ntfy](https://ntfy.sh/) sur téléphone, dashboard en HTML/JavaScript sans dépendance |
 | Fichiers | [Samba](https://www.samba.org/) |
 | Automatisation | scripts shell (restauration, statut public, liste des conteneurs) |
 
@@ -70,7 +74,7 @@ Le Pi ouvre lui-même la connexion vers Cloudflare. Rien n'est exposé directeme
 
 ```
 .
-├── docker-compose.yml      # les 14 conteneurs (sites, tunnels, supervision)
+├── docker-compose.yml      # les 16 conteneurs (sites, tunnels, supervision)
 ├── .env.example            # variables attendues (le vrai .env n'est jamais versionné)
 ├── www/                    # page d'accueil + www-status (statut public en direct)
 ├── gamevault/  web2/       # applications (nginx)
@@ -95,7 +99,7 @@ docker compose up -d
 
 | Variable | Rôle |
 |---|---|
-| `CLOUDFLARE_TUNNEL_TOKEN_WWW`, `_GAMEVAULT`, `_WEB2`, `_CONFIG`, `_LOGS`, `_NETDATA` | Un token par tunnel Cloudflare, un tunnel par application |
+| `CLOUDFLARE_TUNNEL_TOKEN_WWW`, `_GAMEVAULT`, `_WEB2`, `_CONFIG`, `_LOGS`, `_NETDATA`, `_UPTIME` | Un token par tunnel Cloudflare, un tunnel par application |
 | `DOCKER_GID` | Identifiant du groupe `docker` de la machine, lu par Netdata (`getent group docker \| cut -d: -f3`) |
 
 ## Sécurité

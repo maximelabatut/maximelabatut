@@ -19,7 +19,7 @@ sudo usermod -aG docker "$USER"
 
 echo "== 3/7 Dépôt GitHub"
 [ -d "$HOME/docker/.git" ] || git clone "$REPO" "$HOME/docker"
-mkdir -p "$HOME/docker/www/html/data" "$HOME/docker/dashboard/data"
+mkdir -p "$HOME/docker/www/html/data" "$HOME/docker/dashboard/data" "$HOME/docker/uptime-kuma/data"
 
 echo "== 4/7 Secrets (.env)"
 cp "$SRC_ENV" "$HOME/docker/.env"
