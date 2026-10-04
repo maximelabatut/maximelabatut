@@ -238,7 +238,7 @@ Un tunnel Cloudflare par sous-domaine (`config`, `netdata`, `logs`, `uptime`), c
 - `uptime-kuma/data/` n'est **pas versionné** (il contient le compte administrateur, le hash de son mot de passe et le canal ntfy) mais il est **sauvegardé sur le Mac** par `sauvegarder-pi.sh` (`~/Backups/raspberrypi/uptime-kuma-data.tgz`, avec le `.env`) et **restauré automatiquement** par `restaurer-pi.sh` / `restore.sh` avant le premier lancement : après une restauration, le compte, les sondes et la notification ntfy sont déjà en place. Le dossier est créé par `restore.sh` pour qu'il appartienne à `maxime`.
 - **Pourquoi pas un simple `cp` de `kuma.db`** : la base est en mode WAL. Le journal `kuma.db-wal` peut être plus gros que la base elle-même (1,1 Mo contre 380 Ko constatés) et contenir les écritures récentes. La sauvegarde utilise donc `sqlite3 .backup`, qui produit un instantané cohérent même pendant que Uptime Kuma écrit, plus `db-config.json` (sans lui, Uptime Kuma redemande le choix de la base de données). Le script vérifie `PRAGMA integrity_check` et le nombre de sondes avant de remplacer l'ancienne sauvegarde.
 - **`sudo` demande un mot de passe sur ce Pi** (il n'est pas en `NOPASSWD`). Les scripts distants (`sauvegarder-pi.sh`, `restore.sh`) sont donc exécutés avec un terminal (`ssh -t`) pour que `sudo` puisse le demander, et `restore.sh` maintient l'autorisation (`sudo -v` puis boucle `sudo -n true`) pour ne pas le redemander après les mises à jour. Pour la sauvegarde planifiée, cette contrainte est levée par le script root et la règle `sudo` limitée (cf. « Sauvegarde automatique »). `restore.sh`, lui, garde besoin du mot de passe `sudo` (une saisie).
-- Les sondes et la notification sont sauvegardées chaque nuit (cf. « Sauvegarde automatique ») ; relancer `sauvegarder-pi.sh` seulement pour forcer une sauvegarde immédiate.
+- Les sondes et la notification sont sauvegardées automatiquement chaque jour (cf. « Sauvegarde automatique ») ; relancer `sauvegarder-pi.sh` seulement pour forcer une sauvegarde immédiate.
 - Les sondes affichent le code HTTP renvoyé : `502` = tunnel joignable mais application arrêtée, `1033`/timeout = tunnel ou Pi injoignable.
 
 ### Consommation CPU de Netdata (réglages et diagnostic)
@@ -358,14 +358,14 @@ Le dépôt étant privé, le Pi s'y authentifie avec une **clé de déploiement*
 
 ## Sauvegarde automatique (sans mot de passe)
 
-La sauvegarde du Pi vers le Mac tourne toute seule chaque nuit. Elle ne demande plus aucun mot de passe : connexion SSH par clé (cf. « Durcissement SSH ») et script root à usage unique côté Pi.
+La sauvegarde du Pi vers le Mac tourne toute seule, sans heure fixe (le Mac n'est pas allumé en permanence). Elle ne demande plus aucun mot de passe : connexion SSH par clé (cf. « Durcissement SSH ») et script root à usage unique côté Pi.
 
 | Où | Quoi |
 |---|---|
 | Pi | `/usr/local/sbin/homelab-backup` (root, `755`) : copie cohérente (`sqlite3 .backup`) des bases d'Uptime Kuma et de GameVault dans `/var/backups/homelab/` (dossier root, archives en `600` pour `maxime`) |
 | Pi | `/etc/sudoers.d/homelab-backup` : `maxime ALL=(root) NOPASSWD: /usr/local/sbin/homelab-backup ""` (ce script seul, **sans argument**) |
 | Dépôt | `pi/homelab-backup`, `pi/install-backup.sh` (copie le script en root et valide la règle avec `visudo -cf` **avant** de l'installer : une erreur dans `sudoers` peut bloquer `sudo`) |
-| Mac | `~/Backups/raspberrypi/sauvegarder-pi.sh` (`--auto` pour le mode planifié), `planifier-sauvegarde.sh` (tâche `launchd` `fr.maximelabatut.homelab-backup`, tous les jours à 03h30) |
+| Mac | `~/Backups/raspberrypi/sauvegarder-pi.sh` (`--auto` pour le mode planifié), `planifier-sauvegarde.sh` (tâche `launchd` `fr.maximelabatut.homelab-backup`, à l'ouverture de session puis chaque heure) |
 
 **Installation sur le Pi** (une fois ; `restore.sh` le refait sur une carte neuve) :
 ```bash
@@ -378,14 +378,16 @@ cd ~/docker && sudo bash pi/install-backup.sh
 ~/Backups/raspberrypi/planifier-sauvegarde.sh status
 ```
 
-**Ce que fait une exécution** : connexion par clé, `sudo -n homelab-backup`, téléchargement du `.env` et des archives, **vérification** (`PRAGMA integrity_check`, nombre de sondes et de jeux, présence de tokens valides) puis seulement remplacement des fichiers. Si une vérification échoue, rien n'est remplacé. Les 14 versions précédentes des archives sont gardées dans `historique/`, l'ancien `.env` dans `.env.prev`. En mode planifié : journal `~/Library/Logs/homelab-backup.log` et notification macOS (« Terminée » avec le résumé, ou « Échec »). Sans le script root, `sauvegarder-pi.sh` lancé à la main retombe sur l'ancienne méthode interactive (mot de passe `sudo`) ; planifié, il échoue plutôt que de bloquer.
+**Quand elle part** : `launchd` lance le script à l'ouverture de session puis toutes les heures, mais le script **ne fait rien si la dernière sauvegarde réussie a moins de 20 h** (fichier `~/Backups/raspberrypi/.derniere-sauvegarde`). Résultat : une sauvegarde par jour environ, à la première heure où le Mac est allumé et où le Pi est joignable. Mac éteint la nuit : rattrapage dès l'ouverture de session suivante. Mac en veille : les passages manqués se regroupent en un seul au réveil. Pi injoignable (éteint, autre réseau, réseau pas encore monté) : aucune erreur, nouvel essai à l'heure suivante ; notification « Pi injoignable » seulement si aucune sauvegarde n'a réussi depuis 48 h. Une exécution manuelle (`sauvegarder-pi.sh` sans `--auto`) sauvegarde toujours.
+
+**Ce que fait une exécution** : connexion par clé, `sudo -n homelab-backup`, téléchargement du `.env` et des archives, **vérification** (`PRAGMA integrity_check`, nombre de sondes et de jeux, présence de tokens valides) puis seulement remplacement des fichiers. Elle recopie aussi les scripts de restauration (`restore.sh`, `restaurer-pi.sh`, `sauvegarder-pi.sh`, `planifier-sauvegarde.sh`, `verifier-acces.sh`) depuis le dépôt du Pi, par remplacement atomique : les copies de secours du Mac ne sont plus jamais en retard (un script absent ou invalide du Pi laisse la copie existante). Si une vérification échoue, rien n'est remplacé. Les 14 versions précédentes des archives sont gardées dans `historique/`, l'ancien `.env` dans `.env.prev`. En mode planifié : journal `~/Library/Logs/homelab-backup.log` et notification macOS (« Terminée » avec le résumé, ou « Échec »). Sans le script root, `sauvegarder-pi.sh` lancé à la main retombe sur l'ancienne méthode interactive (mot de passe `sudo`) ; planifié, il échoue plutôt que de bloquer.
 
 **Pourquoi `~/Backups/raspberrypi` et pas le Bureau** : macOS interdit à une tâche `launchd` de lire le Bureau, Documents et Téléchargements (protection de la vie privée), même pour des fichiers créés par la tâche elle-même : mesuré, `Operation not permitted`. Le script planifié, le `.env`, les archives et la clé de déploiement sont donc dans `~/Backups/raspberrypi` (hors de ces dossiers, hors d'une éventuelle synchronisation iCloud du Bureau, droits `700`). `planifier-sauvegarde.sh install` refuse un script situé dans un dossier protégé.
 
 **Limites et sécurité (à connaître)**
 - Le script root refuse tout chemin contenant un lien symbolique (`realpath -e`) : sans cela, un utilisateur pourrait pointer un lien vers un fichier de `root` pour s'en faire remettre une copie lisible. Il écrit dans un dossier propriété de `root` (pas de lien ni de renommage possible depuis `maxime`).
 - **Ce n'est pas une barrière absolue** : `maxime` est dans le groupe `docker`, ce qui équivaut déjà à un accès root (un conteneur peut monter tout le disque). La règle `sudo` limitée sert à supprimer le mot de passe pour l'automatisation sans ouvrir un `sudo` général ; elle ne protège pas contre quelqu'un qui contrôle déjà ce compte.
-- La sauvegarde ne part que si le Mac est allumé, session ouverte (trousseau déverrouillé pour la clé SSH) et sur le même réseau que le Pi. Si le Mac dort à 03h30, elle part au réveil. Une absence prolongée n'est pas signalée (pas d'échec) : vérifier de temps en temps la date des fichiers de `~/Backups/raspberrypi`.
+- La sauvegarde ne part que si le Mac est allumé, session ouverte (trousseau déverrouillé pour la clé SSH) et sur le même réseau que le Pi. Les absences sont rattrapées (cf. « Quand elle part »). Si le Mac est éteint ou hors réseau plusieurs jours, il n'y a pas de sauvegarde pendant ce temps : un Mac éteint ne peut pas prévenir, et la notification « Pi injoignable » n'arrive qu'à son retour. Vérifier de temps en temps la date de `.derniere-sauvegarde`.
 - `/var/backups/homelab/` garde sur le Pi la dernière copie (quelques Mo), sur la même carte SD : ce n'est pas une sauvegarde, seulement un point de passage.
 
 ---
@@ -498,7 +500,7 @@ Après l'enrôlement, Cloudflare peut te renvoyer sur la page d'accueil de l'org
 | `config`, `netdata`, `logs`, `uptime`, `gamevault`, `homewatch` | derrière Access (302 vers `cloudflareaccess.com`) |
 
 - Lancement manuel : `~/Backups/raspberrypi/verifier-acces.sh` (tableau complet ; code de sortie 0 = conforme, 1 = anomalie, 2 = pas de réseau). `--quiet` n'affiche que les anomalies.
-- **Chaque nuit**, `sauvegarder-pi.sh` le lance en premier : en cas d'anomalie, notification macOS « Exposition détectée » et ligne dans `~/Library/Logs/homelab-backup.log` (la sauvegarde se poursuit).
+- **À chaque sauvegarde (environ une fois par jour)**, `sauvegarder-pi.sh` le lance en premier : en cas d'anomalie, notification macOS « Exposition détectée » et ligne dans `~/Library/Logs/homelab-backup.log` (la sauvegarde se poursuit).
 - **Règle** : toute nouvelle application ajoutée au `docker-compose.yml` doit être ajoutée aux listes `PUBLIC_HOSTS` / `PROTECTED_HOSTS` du script, sinon elle n'est pas contrôlée.
 - Origine : lors de la mise en place d'Homewatch, ce contrôle a révélé qu'`uptime.maximelabatut.com` était resté **sans Access** (sa page de connexion Uptime Kuma était joignable de l'extérieur). L'oubli de l'étape « ajouter l'adresse aux destinations Access » ne se voit pas à l'usage, puisque l'application fonctionne quand même.
 

@@ -2,11 +2,15 @@
 # Sauvegarde du Pi vers le Mac : le .env et des instantanés cohérents des bases (Uptime Kuma, GameVault).
 #   Manuel :    ~/Backups/raspberrypi/sauvegarder-pi.sh
 #   Planifié :  sauvegarder-pi.sh --auto   (sans terminal : journal ~/Library/Logs/homelab-backup.log + notification macOS)
+#               Lancé chaque heure par launchd et à l'ouverture de session ; ne fait quelque chose que si la dernière
+#               sauvegarde réussie a plus de MAX_AGE_H heures (le Mac n'est pas allumé en permanence).
 #
 # Fichiers produits dans ~/Backups/raspberrypi (droits 600) :
 #   .env                      tokens Cloudflare (+ DOCKER_GID, recalculé à la restauration)
 #   uptime-kuma-data.tgz      base SQLite cohérente + db-config.json
 #   gamevault-data.tgz        base SQLite de GameVault (catalog.db)
+#   *.sh                      copies des scripts de restauration/sauvegarde, prises sur le Pi (toujours à jour)
+#   .derniere-sauvegarde      date de la dernière sauvegarde réussie (sert à décider si une nouvelle est nécessaire)
 # Historique : les 14 versions précédentes des archives sont gardées dans historique/ ; .env.prev garde l'ancien .env.
 #
 # Sans mot de passe : le Pi exécute /usr/local/sbin/homelab-backup (root) via une règle sudo NOPASSWD limitée à ce script
@@ -18,6 +22,14 @@ DEST="${DEST:-$HOME/Backups/raspberrypi}"
 AUTO=0; [ "${1:-}" = "--auto" ] && AUTO=1
 LOG="$HOME/Library/Logs/homelab-backup.log"
 KEEP=14
+MAX_AGE_H="${MAX_AGE_H:-20}"      # une sauvegarde automatique est refaite si la dernière réussie date de plus de ...
+ALERT_AGE_H="${ALERT_AGE_H:-48}"  # notification si le Pi est injoignable alors que la dernière sauvegarde date de plus de ...
+STAMP="$DEST/.derniere-sauvegarde"
+
+age_hours() { [ -f "$STAMP" ] && echo $(( ( $(date +%s) - $(stat -f %m "$STAMP") ) / 3600 )) || echo 9999; }
+
+# Mode planifié : silencieux et immédiat si une sauvegarde récente existe.
+if [ "$AUTO" = 1 ] && [ "$(age_hours)" -lt "$MAX_AGE_H" ]; then exit 0; fi
 
 notify() { osascript -e "display notification \"$2\" with title \"Sauvegarde du Pi\" subtitle \"$1\"" >/dev/null 2>&1 || true; }
 
@@ -54,7 +66,16 @@ if [ -x "$CHECK" ]; then
 fi
 
 echo "Connexion au Pi..."
-ssh "${OPTS[@]}" "$HOST" true
+if ! ssh "${OPTS[@]}" "$HOST" true; then
+  if [ "$AUTO" = 1 ]; then
+    # Pi éteint, Mac hors du réseau local, réseau pas encore monté au réveil : on réessaiera à la prochaine heure.
+    AGE="$(age_hours)"
+    echo "Pi injoignable (dernière sauvegarde réussie il y a ${AGE} h) : nouvel essai au prochain passage."
+    [ "$AGE" -ge "$ALERT_AGE_H" ] && notify "Pi injoignable" "Aucune sauvegarde réussie depuis plus de ${ALERT_AGE_H} h."
+    exit 0
+  fi
+  echo "ERREUR : le Pi est injoignable."; exit 1
+fi
 
 echo "1/4 Instantané cohérent des bases sur le Pi"
 RDIR="/var/backups/homelab"
@@ -131,6 +152,16 @@ install -m 600 "$TMP/.env" "$DEST/.env"
 install -m 600 "$TMP/uptime-kuma-data.tgz" "$DEST/uptime-kuma-data.tgz"
 [ "$HAS_GV" = 1 ] && install -m 600 "$TMP/gamevault-data.tgz" "$DEST/gamevault-data.tgz"
 chmod 700 "$DEST/historique"; chmod 600 "$DEST"/historique/* 2>/dev/null || true
+
+# Scripts de restauration : copiés depuis le dépôt du Pi, par remplacement atomique (ce script peut en faire partie).
+for f in restore.sh mac/restaurer-pi.sh mac/sauvegarder-pi.sh mac/planifier-sauvegarde.sh mac/verifier-acces.sh; do
+  if scp -q "${OPTS[@]}" "$HOST:docker/$f" "$TMP/script.new" 2>/dev/null && head -1 "$TMP/script.new" | grep -q '^#!'; then
+    install -m 711 "$TMP/script.new" "$DEST/.$(basename "$f").new" && mv -f "$DEST/.$(basename "$f").new" "$DEST/$(basename "$f")"
+  else
+    echo "   (script non récupéré : $f, copie existante conservée)"
+  fi
+done
+touch "$STAMP"
 
 MSG="$TOKENS tokens Cloudflare, Uptime Kuma ($MON sondes, $NOTIF notification(s))${GAMES:+, GameVault ($GAMES jeux)}"
 echo
