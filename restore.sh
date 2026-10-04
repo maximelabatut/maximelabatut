@@ -1,6 +1,7 @@
 #!/bin/bash
 # Restauration complète du Pi sur une carte SD vierge. Lancé par restaurer-pi.sh (Mac) via ssh -t.
-# Prérequis : le .env a été copié sur le Pi dans /tmp/pi.env. Relançable sans risque.
+# Prérequis : restaurer-pi.sh a déchiffré la dernière archive de sauvegarde et copié sur le Pi, dans /tmp : pi.env, uptime-kuma-data.tgz,
+# gamevault-data.tgz, <dépôt>-deploy-key, homelab-backup-config.tgz. Relançable sans risque.
 set -euo pipefail
 
 REPO="https://github.com/maximelabatut/maximelabatut.git"
@@ -81,8 +82,13 @@ if [ -f /tmp/uptime-kuma-data.tgz ]; then
   rm -f /tmp/uptime-kuma-data.tgz
 fi
 
-echo "   Sauvegarde sans mot de passe : script root et règle sudo limitée"
-sudo bash "$HOME/docker/pi/install-backup.sh"
+echo "   Sauvegarde quotidienne chiffrée vers GitHub (clés reprises de la dernière archive : aucune question)"
+if [ -f /tmp/homelab-backup-config.tgz ]; then
+  sudo install -d -m 700 -o root -g root /etc/homelab-backup
+  sudo tar xzf /tmp/homelab-backup-config.tgz -C /etc/homelab-backup --no-same-owner
+  rm -f /tmp/homelab-backup-config.tgz
+fi
+sudo NOFIRST=1 bash "$HOME/docker/pi/install-backup.sh"
 
 echo "== 4/7 Secrets (.env)"
 cp "$SRC_ENV" "$HOME/docker/.env"

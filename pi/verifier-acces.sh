@@ -3,7 +3,8 @@
 # (ou public) comme prévu. Un sous-domaine censé être protégé qui ne l'est pas est une EXPOSITION : le script
 # le signale et sort en erreur.
 #   verifier-acces.sh            tableau complet
-#   verifier-acces.sh --quiet    n'affiche que les anomalies (utilisé par la sauvegarde nocturne)
+#   verifier-acces.sh --quiet    n'affiche que les anomalies (utilisé par la sauvegarde quotidienne du Pi,
+#                                où il est installé sous /usr/local/sbin/homelab-check-access)
 #
 # Codes de sortie : 0 = conforme, 1 = anomalie d'exposition, 2 = réseau indisponible (rien n'a pu être vérifié).
 #

@@ -1,26 +1,49 @@
 #!/bin/bash
-# À lancer depuis le Mac, une fois la carte SD flashée (Raspberry Pi Imager) et le Pi démarré sur le WiFi.
-# Envoie le .env et lance restore.sh sur le Pi. Un seul mot de passe SSH à saisir, plus le futur mot de passe Samba.
+# À lancer depuis un Mac (ou tout poste avec bash, ssh et age), une fois la carte SD flashée (Raspberry Pi Imager) et le Pi démarré.
+#   restaurer-pi.sh [archive.tar.gz.age]
+# Sans argument, la dernière archive est récupérée dans le dépôt privé de sauvegardes (identifiants GitHub demandés si besoin).
+# Sinon : télécharger l'archive depuis la page GitHub du dépôt (compte connecté) et passer son chemin en argument.
+# La clé SECRÈTE age (gestionnaire de mots de passe) est demandée sans affichage : elle n'est jamais écrite sur le disque.
+# Un seul mot de passe SSH à saisir (celui du Pi), plus le futur mot de passe Samba.
 set -euo pipefail
 
 HOST="maxime@maxime.local"
-ENV_FILE="${ENV_FILE:-$HOME/Backups/raspberrypi/.env}"
+BACKUP_REPO="https://github.com/maximelabatut/maximelabatut-backups.git"
 RAW="https://raw.githubusercontent.com/maximelabatut/maximelabatut/main/restore.sh"
-LOCAL_RESTORE="$HOME/Backups/raspberrypi/restore.sh"
 
-[ -f "$ENV_FILE" ] || { echo "Fichier introuvable : $ENV_FILE"; exit 1; }
+command -v age >/dev/null || { echo "age est requis pour déchiffrer l'archive : brew install age (ou apt install age)."; exit 1; }
 
-TMP="$(mktemp -d /tmp/pirestore.XXXXXX)"
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/pirestore.XXXXXX")"
 SOCK="$TMP/ssh.sock"
 trap 'ssh -O exit -o ControlPath="$SOCK" "$HOST" >/dev/null 2>&1 || true; rm -rf "$TMP"' EXIT
+chmod 700 "$TMP"
+
+ARCHIVE="${1:-}"
+if [ -z "$ARCHIVE" ]; then
+  echo "Récupération de la dernière sauvegarde dans $BACKUP_REPO ..."
+  git clone -q --depth 1 "$BACKUP_REPO" "$TMP/bk" || { echo "Clonage impossible : télécharger l'archive depuis GitHub et relancer avec son chemin."; exit 1; }
+  ARCHIVE="$(ls -1 "$TMP"/bk/homelab-*.tar.gz.age 2>/dev/null | sort | tail -1)"
+  [ -n "$ARCHIVE" ] || { echo "Aucune archive dans le dépôt de sauvegardes."; exit 1; }
+fi
+[ -f "$ARCHIVE" ] || { echo "Archive introuvable : $ARCHIVE"; exit 1; }
+echo "Archive : $(basename "$ARCHIVE")"
+
+if [ -n "${AGE_KEY_FILE:-}" ]; then
+  KEY="$(cat "$AGE_KEY_FILE")"
+else
+  read -r -s -p "Clé secrète age (AGE-SECRET-KEY-...) : " KEY; echo
+fi
+[[ "$KEY" == AGE-SECRET-KEY-* ]] || { echo "Ce n'est pas une clé secrète age."; exit 1; }
+mkdir -m 700 "$TMP/x"
+age -d -i <(printf '%s\n' "$KEY") "$ARCHIVE" | tar xzf - -C "$TMP/x" || { echo "Déchiffrement impossible (mauvaise clé ?)."; exit 1; }
+unset KEY
+echo "--- contenu de la sauvegarde :"; cat "$TMP/x/MANIFEST.txt"; echo "---"
+[ -f "$TMP/x/env" ] || { echo "Archive invalide : .env absent."; exit 1; }
 
 if curl -fsSL "$RAW" -o "$TMP/restore.sh"; then
   echo "restore.sh récupéré depuis GitHub."
-elif [ -f "$LOCAL_RESTORE" ]; then
-  cp "$LOCAL_RESTORE" "$TMP/restore.sh"
-  echo "GitHub injoignable : copie locale de restore.sh utilisée."
 else
-  echo "restore.sh introuvable (ni sur GitHub, ni dans $LOCAL_RESTORE)."; exit 1
+  echo "restore.sh introuvable sur GitHub."; exit 1
 fi
 
 # La clé SSH du Pi change à chaque reflash.
@@ -31,41 +54,19 @@ OPTS=(-o StrictHostKeyChecking=accept-new -o ControlMaster=auto -o ControlPath="
 echo "Connexion au Pi (saisis le mot de passe de l'utilisateur maxime, une seule fois)..."
 ssh "${OPTS[@]}" "$HOST" true
 
-scp "${OPTS[@]}" "$ENV_FILE" "$HOST:/tmp/pi.env"
-KUMA_ARCHIVE="${KUMA_ARCHIVE:-$HOME/Backups/raspberrypi/uptime-kuma-data.tgz}"
-if [ -f "$KUMA_ARCHIVE" ]; then
-  scp "${OPTS[@]}" "$KUMA_ARCHIVE" "$HOST:/tmp/uptime-kuma-data.tgz"
-  echo "Données Uptime Kuma envoyées (sondes, notification ntfy, compte)."
-else
-  echo "Pas de sauvegarde Uptime Kuma ($KUMA_ARCHIVE) : à reconfigurer à la main."
+scp -q "${OPTS[@]}" "$TMP/x/env" "$HOST:/tmp/pi.env"
+for f in uptime-kuma-data.tgz gamevault-data.tgz; do
+  if [ -f "$TMP/x/$f" ]; then scp -q "${OPTS[@]}" "$TMP/x/$f" "$HOST:/tmp/$f"; echo "$f envoyé."; else echo "Pas de $f dans l'archive."; fi
+done
+for k in gamevault homewatch; do
+  if [ -f "$TMP/x/$k-deploy-key" ]; then scp -q "${OPTS[@]}" "$TMP/x/$k-deploy-key" "$HOST:/tmp/$k-deploy-key"; echo "Clé de déploiement $k envoyée."; else echo "Pas de clé de déploiement $k : son code ne sera pas cloné."; fi
+done
+if [ -d "$TMP/x/homelab-backup" ]; then
+  tar czf "$TMP/cfg.tgz" -C "$TMP/x/homelab-backup" .
+  scp -q "${OPTS[@]}" "$TMP/cfg.tgz" "$HOST:/tmp/homelab-backup-config.tgz"
+  echo "Configuration de la sauvegarde quotidienne envoyée."
 fi
-GV_DIR="${GV_DIR:-$HOME/Backups/raspberrypi/GameVault}"
-GV_KEY="${GV_KEY:-$HOME/Backups/raspberrypi/gamevault-deploy-key}"
-GV_DATA="${GV_DATA:-$HOME/Backups/raspberrypi/gamevault-data.tgz}"
-HW_KEY="${HW_KEY:-$HOME/Backups/raspberrypi/homewatch-deploy-key}"
-if [ -f "$HW_KEY" ]; then
-  scp "${OPTS[@]}" "$HW_KEY" "$HOST:/tmp/homewatch-deploy-key"
-  echo "Clé de déploiement Homewatch envoyée : le code sera cloné depuis le dépôt privé."
-else
-  echo "Pas de clé de déploiement Homewatch ($HW_KEY) : le conteneur homewatch ne se construira pas."
-fi
-if [ -f "$GV_KEY" ]; then
-  scp "${OPTS[@]}" "$GV_KEY" "$HOST:/tmp/gamevault-deploy-key"
-  echo "Clé de déploiement envoyée : le code de GameVault sera récupéré depuis le dépôt privé GitHub."
-elif [ -f "$GV_DIR/rss_proxy_server.py" ] && [ -f "$GV_DIR/GameVault.html" ]; then
-  tar czf "$TMP/gamevault-app.tgz" -C "$GV_DIR" GameVault.html rss_proxy_server.py logo.png logo.ico
-  scp "${OPTS[@]}" "$TMP/gamevault-app.tgz" "$HOST:/tmp/gamevault-app.tgz"
-  echo "Pas de clé de déploiement ($GV_KEY) : code GameVault envoyé depuis $GV_DIR."
-else
-  echo "Ni clé de déploiement ni code GameVault local : GameVault ne démarrera pas tant que ~/docker/gamevault/app est vide."
-fi
-if [ -f "$GV_DATA" ]; then
-  scp "${OPTS[@]}" "$GV_DATA" "$HOST:/tmp/gamevault-data.tgz"
-  echo "Base GameVault envoyée (catalogue de jeux, wishlist)."
-else
-  echo "Pas de sauvegarde de la base GameVault ($GV_DATA) : GameVault repartira avec une base vide."
-fi
-scp "${OPTS[@]}" "$TMP/restore.sh" "$HOST:/tmp/restore.sh"
+scp -q "${OPTS[@]}" "$TMP/restore.sh" "$HOST:/tmp/restore.sh"
 ssh -t "${OPTS[@]}" "$HOST" "bash /tmp/restore.sh; rm -f /tmp/restore.sh"
 
 echo

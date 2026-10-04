@@ -1,0 +1,11 @@
+[Unit]
+Description=Sauvegarde quotidienne du homelab
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=10min
+# Si le Pi était éteint à l'heure prévue, la sauvegarde part au démarrage suivant.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

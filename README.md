@@ -78,12 +78,13 @@ Le Pi ouvre lui-même la connexion vers Cloudflare. Rien n'est exposé directeme
 ├── .env.example            # variables attendues (le vrai .env n'est jamais versionné)
 ├── www/                    # page d'accueil + www-status (statut public en direct)
 ├── web2/                   # application (nginx)
-├── gamevault/              # application Python (code et base hors dépôt, sauvegardées sur le Mac)
+├── gamevault/              # application Python (code et base hors dépôt ; la base est dans la sauvegarde chiffrée)
 ├── dashboard/              # dashboard sur mesure (nginx + liste des conteneurs)
 ├── netdata/                # configuration de Netdata
 ├── argon/                  # courbe du ventilateur du boîtier Argon ONE
 ├── restore.sh              # restauration complète, exécutée sur le Pi
-├── mac/                    # sauvegarde et restauration, lancées depuis le Mac
+├── pi/                     # sauvegarde quotidienne chiffrée (timer systemd) et contrôle d'exposition
+├── mac/                    # restauration, lancée depuis le Mac
 └── docs/                   # documentation détaillée
 ```
 
@@ -112,10 +113,11 @@ docker compose up -d
 
 ## Restauration
 
-Le `.env` et les données d'Uptime Kuma sont sauvegardés sur le Mac par `mac/sauvegarder-pi.sh` (instantané SQLite cohérent). Si la carte SD est à remplacer : flasher Raspberry Pi OS Lite 64 bits avec Raspberry Pi Imager, puis lancer depuis le Mac une seule commande qui réinstalle tout (système, Docker, configuration, Samba, ventilateur, données d'Uptime Kuma, conteneurs) :
+Chaque jour, le Pi envoie lui-même sur un dépôt GitHub privé une archive **chiffrée** (`age`) contenant le `.env` et les données des applications (30 jours conservés) ; la clé de déchiffrement est dans un gestionnaire de mots de passe. Si la carte SD est à remplacer : flasher Raspberry Pi OS Lite 64 bits avec Raspberry Pi Imager, puis lancer depuis le Mac une seule commande qui réinstalle tout (système, Docker, configuration, Samba, ventilateur, données d'Uptime Kuma, conteneurs) :
 
 ```bash
-~/Backups/raspberrypi/restaurer-pi.sh
+git clone https://github.com/maximelabatut/maximelabatut.git ~/homelab-restore
+~/homelab-restore/mac/restaurer-pi.sh
 ```
 
 Détails et procédure manuelle : [`docs/restauration-carte-sd.md`](docs/restauration-carte-sd.md).

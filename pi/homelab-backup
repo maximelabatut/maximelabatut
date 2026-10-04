@@ -1,48 +1,146 @@
 #!/bin/bash
-# /usr/local/sbin/homelab-backup : exécuté en root par "sudo -n" (règle NOPASSWD limitée à ce script, sans argument).
-# Produit des instantanés cohérents (sqlite3 .backup, journal WAL compris) des bases de données dans
-# /var/backups/homelab/, lisibles par l'utilisateur. Ce fichier est une COPIE root-owned du dépôt
-# (pi/homelab-backup) : le modifier dans le dépôt n'a d'effet qu'après une nouvelle installation
-# (sudo bash ~/docker/pi/install-backup.sh).
+# /usr/local/sbin/homelab-backup : sauvegarde quotidienne CHIFFRÉE vers un dépôt GitHub privé.
+# Exécuté en root par homelab-backup.service (timer systemd, tous les jours à ~03h30, rattrapé au démarrage si le Pi était éteint).
+# Ce fichier est une COPIE root-owned du dépôt (pi/homelab-backup) : le modifier dans le dépôt n'a d'effet qu'après
+# une nouvelle installation (sudo bash ~/docker/pi/install-backup.sh).
+#
+# Contenu d'une sauvegarde (UNE archive par jour, chiffrée avec la clé PUBLIQUE age : le Pi ne peut pas la relire) :
+#   env                              le .env (tokens Cloudflare, DOCKER_GID)
+#   uptime-kuma-data.tgz             instantané SQLite cohérent (journal WAL compris) + db-config.json
+#   gamevault-data.tgz               instantané SQLite de GameVault
+#   gamevault-deploy-key, homewatch-deploy-key   clés de déploiement (lecture seule) des dépôts privés
+#   homelab-backup/                  clé publique age, clé d'écriture du dépôt de sauvegardes, URL Uptime Kuma (si présente)
+#   MANIFEST.txt                     date et résumé, sans secret
+# Les 30 dernières archives sont gardées ; l'historique git est réécrit à chaque envoi (un seul commit), donc les
+# anciennes archives disparaissent réellement de GitHub.
+#
+# Rien n'est écrit en clair sur le disque : la préparation se fait en mémoire (/dev/shm) et l'archive est chiffrée à la volée.
 set -euo pipefail
 umask 077
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 
 USER_NAME="maxime"
 HOME_DIR="/home/$USER_NAME"
-OUT="/var/backups/homelab"
+CONF="/etc/homelab-backup"
+STATE="/var/lib/homelab-backup"
+REPO_URL="git@github.com:maximelabatut/maximelabatut-backups.git"
+KEEP=30
+DAY="$(date +%Y-%m-%d)"
+NAME="homelab-$DAY.tar.gz.age"
 
-# Refuse de travailler sur un chemin dont un élément est un lien symbolique (l'utilisateur pourrait
-# sinon pointer un lien vers un fichier de root pour s'en faire remettre une copie lisible).
+log() { echo "[$(date +%H:%M:%S)] $*"; }
+
+# Alerte Uptime Kuma (moniteur de type « Push », facultatif) : /etc/homelab-backup/push-url contient l'URL de push SANS paramètres.
+heartbeat() {  # $1 = up|down, $2 = message
+  [ -s "$CONF/push-url" ] || return 0
+  curl -fsS -m 15 -G --data-urlencode "status=$1" --data-urlencode "msg=$2" "$(head -1 "$CONF/push-url")" >/dev/null 2>&1 || true
+}
+
+STG=""; OK=0
+cleanup() {
+  rc=$?
+  [ -n "$STG" ] && rm -rf "$STG"
+  rm -f "$STATE"/new/* 2>/dev/null || true
+  if [ "$rc" -ne 0 ] && [ "$OK" = 0 ]; then
+    log "ÉCHEC (code $rc) : rien n'a été remplacé sur GitHub."
+    heartbeat down "Échec de la sauvegarde (journalctl -u homelab-backup)"
+  fi
+  exit "$rc"
+}
+trap cleanup EXIT
+
+# Refuse de travailler sur un chemin dont un élément est un lien symbolique.
 canon() { [ "$(realpath -e -- "$1" 2>/dev/null)" = "$1" ]; }
 need() { canon "$1" || { echo "homelab-backup : chemin refusé (absent ou lien symbolique) : $1" >&2; exit 1; }; }
 
-install -d -m 755 -o root -g root "$OUT"          # dossier propriété de root : l'utilisateur ne peut ni y créer de lien ni y renommer
-WORK="$(mktemp -d "$OUT/.work.XXXXXX")"
-trap 'rm -rf "$WORK"' EXIT
+RECIPIENT="$(head -1 "$CONF/recipient" 2>/dev/null || true)"
+[[ "$RECIPIENT" =~ ^age1[a-z0-9]{50,}$ ]] || { echo "Clé publique age absente ou invalide : $CONF/recipient" >&2; exit 1; }
+[ -s "$CONF/deploy-key" ] && [ -s "$CONF/known_hosts" ] || { echo "Clé d'écriture ou known_hosts absents de $CONF (relancer install-backup.sh)" >&2; exit 1; }
 
+install -d -m 700 "$STATE" "$STATE/new"
+STG="$(mktemp -d -p /dev/shm homelab-backup.XXXXXX)"
+mkdir "$STG/data" "$STG/snap"
+D="$STG/data"
+
+log "1/5 Instantanés cohérents des bases"
 KUMA="$HOME_DIR/docker/uptime-kuma/data"
-if [ -e "$KUMA/kuma.db" ]; then
-  need "$KUMA/kuma.db"; need "$KUMA/db-config.json"
-  mkdir "$WORK/kuma"
-  sqlite3 "$KUMA/kuma.db" ".backup '$WORK/kuma/kuma.db'"
-  cp -- "$KUMA/db-config.json" "$WORK/kuma/db-config.json"
-  tar czf "$WORK/uptime-kuma-data.tgz" -C "$WORK/kuma" kuma.db db-config.json
-fi
+need "$KUMA/kuma.db"; need "$KUMA/db-config.json"
+sqlite3 "$KUMA/kuma.db" ".backup '$STG/snap/kuma.db'"
+[ "$(sqlite3 "$STG/snap/kuma.db" 'PRAGMA integrity_check;')" = "ok" ] || { echo "Base Uptime Kuma corrompue" >&2; exit 1; }
+cp -- "$KUMA/db-config.json" "$STG/snap/db-config.json"
+tar czf "$D/uptime-kuma-data.tgz" -C "$STG/snap" kuma.db db-config.json
+MON="$(sqlite3 "$STG/snap/kuma.db" 'SELECT count(*) FROM monitor;')"
 
+GAMES="absente"
 GV="$HOME_DIR/docker/gamevault/data/catalog.db"
 if [ -e "$GV" ]; then
   need "$GV"
-  mkdir "$WORK/gv"
-  sqlite3 "$GV" ".backup '$WORK/gv/catalog.db'"
-  tar czf "$WORK/gamevault-data.tgz" -C "$WORK/gv" catalog.db
+  sqlite3 "$GV" ".backup '$STG/snap/catalog.db'"
+  [ "$(sqlite3 "$STG/snap/catalog.db" 'PRAGMA integrity_check;')" = "ok" ] || { echo "Base GameVault corrompue" >&2; exit 1; }
+  tar czf "$D/gamevault-data.tgz" -C "$STG/snap" catalog.db
+  GAMES="$(sqlite3 "$STG/snap/catalog.db" 'SELECT count(*) FROM games;')"
 fi
 
-for f in uptime-kuma-data.tgz gamevault-data.tgz; do
-  if [ -f "$WORK/$f" ]; then
-    chown "$USER_NAME:$USER_NAME" "$WORK/$f"
-    chmod 600 "$WORK/$f"
-    mv -f -- "$WORK/$f" "$OUT/$f"
-    echo "ok : $OUT/$f"
-  fi
+log "2/5 Secrets"
+need "$HOME_DIR/docker/.env"
+cp -- "$HOME_DIR/docker/.env" "$D/env"
+TOKENS="$(awk -F= '/^CLOUDFLARE_TUNNEL_TOKEN_/ && length($2) > 100 {n++} END {print n+0}' "$D/env")"
+[ "$TOKENS" -ge 1 ] || { echo "Aucun token Cloudflare valide dans le .env : sauvegarde refusée" >&2; exit 1; }
+for k in gamevault homewatch; do
+  if [ -e "$HOME_DIR/.ssh/${k}_deploy" ]; then need "$HOME_DIR/.ssh/${k}_deploy"; cp -- "$HOME_DIR/.ssh/${k}_deploy" "$D/$k-deploy-key"; fi
 done
+mkdir "$D/homelab-backup"
+cp -- "$CONF/recipient" "$CONF/deploy-key" "$D/homelab-backup/"
+[ -s "$CONF/push-url" ] && cp -- "$CONF/push-url" "$D/homelab-backup/"
+cat > "$D/MANIFEST.txt" <<EOF
+Sauvegarde du homelab : $(date '+%Y-%m-%d %H:%M:%S') ($(hostname))
+$TOKENS tokens Cloudflare, Uptime Kuma : $MON sondes, GameVault : $GAMES jeux
+Clés de déploiement : $(cd "$D" && ls *-deploy-key 2>/dev/null | tr '\n' ' ')
+EOF
+
+log "3/5 Archive chiffrée ($NAME)"
+tar czf - -C "$D" . | age -r "$RECIPIENT" -o "$STATE/new/$NAME"
+head -c 21 "$STATE/new/$NAME" | grep -q '^age-encryption.org/' || { echo "Chiffrement invalide" >&2; exit 1; }
+SIZE="$(du -h "$STATE/new/$NAME" | cut -f1)"
+
+log "4/5 Envoi vers GitHub (${KEEP} archives conservées)"
+export GIT_SSH_COMMAND="ssh -i $CONF/deploy-key -o IdentitiesOnly=yes -o UserKnownHostsFile=$CONF/known_hosts -o StrictHostKeyChecking=yes -o BatchMode=yes -o ConnectTimeout=20"
+R="$STATE/repo"
+gitr() { git -C "$R" -c user.name="homelab-backup" -c user.email="homelab-backup@users.noreply.github.com" "$@"; }
+if [ ! -d "$R/.git" ]; then git init -q -b main "$R"; gitr remote add origin "$REPO_URL"; fi
+REMOTE_HEAD="$(gitr ls-remote --heads origin main | cut -f1)"      # échoue (arrêt) si l'accès est refusé ; vide si le dépôt est vide
+if [ -n "$REMOTE_HEAD" ]; then
+  gitr fetch -q --depth 1 origin main
+  gitr reset -q --hard FETCH_HEAD
+else
+  gitr rm -rq --cached . 2>/dev/null || true
+  find "$R" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+fi
+cp -- "$STATE/new/$NAME" "$R/$NAME"
+ls -1 "$R" | grep -E '^homelab-[0-9]{4}-[0-9]{2}-[0-9]{2}\.tar\.gz\.age$' | sort | awk -v k="$KEEP" '{a[NR]=$0} END {for (i = 1; i <= NR - k; i++) print a[i]}' | while read -r old; do rm -f "$R/$old"; done
+gitr add -A
+TREE="$(gitr write-tree)"
+COMMIT="$(gitr commit-tree "$TREE" -m "Sauvegarde $DAY")"          # commit racine : l'historique précédent n'est pas conservé
+gitr push -q --force origin "$COMMIT:refs/heads/main"
+gitr update-ref refs/heads/main "$COMMIT"
+[ "$(gitr ls-remote --heads origin main | cut -f1)" = "$COMMIT" ] || { echo "Vérification de l'envoi échouée" >&2; exit 1; }
+gitr reflog expire --expire=now --all
+gitr gc -q --prune=now
+COUNT="$(ls -1 "$R" | grep -c '^homelab-.*\.age$')"
+
+log "5/5 Contrôle d'exposition (Cloudflare Access)"
+EXPO=""
+if [ -x /usr/local/sbin/homelab-check-access ]; then
+  rc=0
+  EXPO="$(/usr/local/sbin/homelab-check-access --quiet 2>&1)" || rc=$?
+  [ "$rc" = 1 ] || EXPO=""          # 0 = conforme, 2 = réseau indisponible : pas une exposition
+fi
+
+OK=1
+log "Terminé : $NAME ($SIZE), $COUNT archive(s) sur GitHub. $TOKENS tokens, $MON sondes, $GAMES jeux."
+if [ -n "$EXPO" ]; then
+  log "!! EXPOSITION DÉTECTÉE : $EXPO"
+  heartbeat down "Exposition détectée : $(echo "$EXPO" | head -1 | cut -c1-120)"
+else
+  heartbeat up "OK $DAY ($SIZE, $COUNT archives)"
+fi
