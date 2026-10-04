@@ -115,10 +115,10 @@ Traits pleins : flux de service. Pointillés : signaux optionnels et restauratio
 |---|---|---|
 | Matériel | [Raspberry Pi 4](https://www.raspberrypi.com/) Model B (4 Go), boîtier [Argon ONE V2](https://argon40.com/) | Serveur, ventilateur régulé par la température |
 | Système | Raspberry Pi OS Lite 64 bits (base Debian), `systemd` | Système minimal sans interface graphique ; timers pour la sauvegarde |
-| Conteneurs | [Docker Engine et Compose v2](https://docs.docker.com/compose/), 18 conteneurs | Un conteneur par application, un fichier de déploiement |
+| Conteneurs | [Docker Engine et Compose v2](https://docs.docker.com/compose/), 18 conteneurs (dont 2 à la demande) | Un conteneur par application, un fichier de déploiement |
 | Web | [nginx](https://nginx.org/) (image officielle), Python 3.12 (`python:3.12-slim`) | Sites statiques ; applications Python |
 | Tunnel et accès | [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) (image officielle), [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/access-controls/) avec MFA | Publication sans port ouvert, authentification en amont |
-| Supervision | [Netdata](https://www.netdata.cloud/) (branche stable), [Dozzle](https://dozzle.dev/), [Uptime Kuma](https://github.com/louislam/uptime-kuma) 2 (SQLite) | Métriques, logs, surveillance |
+| Supervision | [Netdata](https://www.netdata.cloud/) (branche stable), [Dozzle](https://dozzle.dev/) (à la demande), [Uptime Kuma](https://github.com/louislam/uptime-kuma) 2 (SQLite) | Métriques, logs, surveillance |
 | Alertes | [ntfy](https://ntfy.sh/) | Notifications sur téléphone |
 | Dashboard | HTML / JavaScript sans dépendance, servi par nginx | Vue d'ensemble : un tiroir par application, consommation CPU, accès aux logs |
 | Fichiers | [Samba](https://www.samba.org/) | Partage du dossier du dépôt avec le Mac |
@@ -130,7 +130,7 @@ Traits pleins : flux de service. Pointillés : signaux optionnels et restauratio
 
 ```
 .
-├── docker-compose.yml      # les 18 conteneurs (sites, tunnels, supervision)
+├── docker-compose.yml      # les 18 conteneurs (sites, tunnels, supervision ; Dozzle et son tunnel à la demande)
 ├── .env.example            # variables attendues (le vrai .env n'est jamais versionné)
 ├── www/                    # page d'accueil + www-status (statut public en direct)
 ├── web2/                   # application (nginx)

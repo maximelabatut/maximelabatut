@@ -110,6 +110,7 @@ services:
     image: amir20/dozzle:latest
     container_name: dozzle
     logging: *default-logging
+    profiles: ["logs"]   # à la demande : démarré par `pi/logs.sh on` ; absent de `docker compose up -d` (et arrêté par lui s'il tourne)
     restart: unless-stopped
     ports:
       - "127.0.0.1:8084:8080"
@@ -185,6 +186,7 @@ services:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-logs
     logging: *default-logging
+    profiles: ["logs"]   # à la demande : démarré par `pi/logs.sh on` ; absent de `docker compose up -d` (et arrêté par lui s'il tourne)
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_LOGS}

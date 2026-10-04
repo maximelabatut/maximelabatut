@@ -146,7 +146,7 @@ Quatre services complémentaires, tous derrière Cloudflare Access (cf section s
 |---|---|---|
 | `config.maximelabatut.com` | Dashboard sur mesure (nginx + page HTML) | Vue d'ensemble : température CPU + courbe, CPU, RAM, stockage, et un tiroir par application (conteneur + tunnel, état, CPU, lien vers les logs) |
 | `netdata.maximelabatut.com` | Netdata | Métriques détaillées avec historique (capteurs, réseau, disque, alertes) |
-| `logs.maximelabatut.com` | Dozzle | Logs en direct de tous les conteneurs (lecture seule) |
+| `logs.maximelabatut.com` | Dozzle | Logs en direct de tous les conteneurs (lecture seule) — **service à la demande**, cf. « Dozzle à la demande » |
 | `uptime.maximelabatut.com` | Uptime Kuma | Surveillance des sites toutes les minutes, alertes sur le téléphone via ntfy (cf section « Alertes ») |
 
 ### Comment ça marche
@@ -262,6 +262,21 @@ Pour trouver un coupable : comparer avant/après avoir arrêté le conteneur sus
 
 Le dashboard met aussi en pause son rafraîchissement quand l'onglet est caché (`document.hidden`) : un aperçu ouvert dans un onglet en arrière-plan ne s'actualise donc pas.
 
+### Dozzle à la demande
+
+Dozzle (lecteur de logs) et son tunnel `cloudflared-logs` ne tournent **que lorsqu'on en a besoin** (profil Compose `logs`). Gain : ~85 Mo de RAM et ~1,3 % de cœur en moyenne, et surtout **un outil d'administration de moins** exposé en permanence : il n'existe que pendant la lecture des logs.
+
+```bash
+bash ~/docker/pi/logs.sh on       # démarre Dozzle et son tunnel (https://logs.<domaine>, derrière Access)
+bash ~/docker/pi/logs.sh off      # les arrête
+bash ~/docker/pi/logs.sh status
+```
+- Sans Dozzle, les logs restent lisibles en SSH : `docker compose logs <service>`.
+- Le dashboard affiche alors le tiroir « Logs (Dozzle) » en gris (« à la demande ») et désactive les liens vers les logs.
+- **`docker compose up -d` (et donc une restauration) ne démarre pas Dozzle**, et peut l'arrêter s'il tourne. Après un redéploiement : `pi/logs.sh on` si besoin. Pour tout démarrer d'un coup : `docker compose --profile logs up -d`.
+- Un conteneur arrêté à la main reste arrêté après un redémarrage du Pi (`restart: unless-stopped`).
+- Cloudflare Access répond toujours par sa redirection, même Dozzle arrêté : le contrôle d'exposition reste valable.
+
 ### Optimisations du 4 octobre 2026
 
 Analyse faite avec les données de Netdata (historique ~20 h) et de Dozzle/`docker logs` : le Pi est calme (charge ~0,1, ~46 °C), mais **`dockerd` et `containerd` consomment ensemble plus de CPU (~56 % d'un cœur en moyenne) que les 18 conteneurs réunis (~11 %)**. Mesures et actions :
@@ -272,12 +287,13 @@ Analyse faite avec les données de Netdata (historique ~20 h) et de Dozzle/`dock
 | `dashboard-sync` piloté par les événements Docker | `docker ps -a` toutes les 10 s (8 640 appels/jour) | un appel par changement de conteneur |
 | `www-status` | un test toutes les 30 s | un test toutes les 60 s |
 | Rotation des logs Docker (`x-logging` du compose : 3 × 10 Mo par conteneur) et logs d'accès du dashboard coupés (`access_log off`) | aucune rotation ; ~3 Mo/jour de logs d'accès inutiles pour le dashboard | taille des logs bornée |
+| Dozzle à la demande | toujours en marche (~85 Mo avec son tunnel) | arrêté sauf lecture de logs (`pi/logs.sh on / off`) |
 | Nettoyage Docker | 633 Mo de cache de build + 2 images inutilisées | 0 ; disque 26 % → 25 % |
 
 À savoir :
 - **La mémoire par conteneur n'est pas disponible** (cgroups mémoire désactivés) : elle se calcule à partir des processus (`/proc/<pid>/status`, champ `VmRSS`, rattaché au conteneur par `/proc/<pid>/cgroup`).
 - Nettoyage périodique : `docker builder prune -f` (cache de build) et `docker image prune` ; `docker system df` montre ce qui est récupérable.
-- Pistes non appliquées, à ne retenir que si le besoin apparaît : regrouper les 8 `cloudflared` en un seul tunnel (−7 conteneurs, ~265 Mo, ~3 % de cœur, mais perte de l'isolation « un tunnel par application »), démarrer Dozzle à la demande (−47 Mo), activer les cgroups mémoire, passer la collecte Docker de Netdata à 30 s.
+- Pistes non appliquées, à ne retenir que si le besoin apparaît : regrouper les 8 `cloudflared` en un seul tunnel (−7 conteneurs, ~265 Mo, ~3 % de cœur, mais perte de l'isolation « un tunnel par application »), activer les cgroups mémoire, passer la collecte Docker de Netdata à 30 s.
 
 ### Température du Pi : valeurs de référence
 
