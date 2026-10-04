@@ -39,6 +39,21 @@ if [ -f "$KUMA_ARCHIVE" ]; then
 else
   echo "Pas de sauvegarde Uptime Kuma ($KUMA_ARCHIVE) : à reconfigurer à la main."
 fi
+GV_DIR="${GV_DIR:-$HOME/Desktop/raspberrypi/GameVault}"
+GV_DATA="${GV_DATA:-$HOME/Desktop/raspberrypi/gamevault-data.tgz}"
+if [ -f "$GV_DIR/rss_proxy_server.py" ] && [ -f "$GV_DIR/GameVault.html" ]; then
+  tar czf "$TMP/gamevault-app.tgz" -C "$GV_DIR" GameVault.html rss_proxy_server.py logo.png logo.ico
+  scp "${OPTS[@]}" "$TMP/gamevault-app.tgz" "$HOST:/tmp/gamevault-app.tgz"
+  echo "Code GameVault envoyé (depuis $GV_DIR)."
+else
+  echo "Code GameVault introuvable dans $GV_DIR : GameVault ne démarrera pas tant que ~/docker/gamevault/app est vide."
+fi
+if [ -f "$GV_DATA" ]; then
+  scp "${OPTS[@]}" "$GV_DATA" "$HOST:/tmp/gamevault-data.tgz"
+  echo "Base GameVault envoyée (catalogue de jeux, wishlist)."
+else
+  echo "Pas de sauvegarde de la base GameVault ($GV_DATA) : GameVault repartira avec une base vide."
+fi
 scp "${OPTS[@]}" "$TMP/restore.sh" "$HOST:/tmp/restore.sh"
 ssh -t "${OPTS[@]}" "$HOST" "bash /tmp/restore.sh; rm -f /tmp/restore.sh"
 

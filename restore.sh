@@ -26,7 +26,18 @@ sudo usermod -aG docker "$USER"
 
 echo "== 3/7 Dépôt GitHub"
 [ -d "$HOME/docker/.git" ] || git clone "$REPO" "$HOME/docker"
-mkdir -p "$HOME/docker/www/html/data" "$HOME/docker/dashboard/data" "$HOME/docker/uptime-kuma/data"
+mkdir -p "$HOME/docker/www/html/data" "$HOME/docker/dashboard/data" "$HOME/docker/uptime-kuma/data" "$HOME/docker/gamevault/app" "$HOME/docker/gamevault/data"
+if [ -f /tmp/gamevault-app.tgz ]; then
+  echo "   Déploiement du code GameVault"
+  tar xzf /tmp/gamevault-app.tgz -C "$HOME/docker/gamevault/app"
+  rm -f /tmp/gamevault-app.tgz
+fi
+if [ -f /tmp/gamevault-data.tgz ]; then
+  echo "   Restauration de la base GameVault"
+  tar xzf /tmp/gamevault-data.tgz -C "$HOME/docker/gamevault/data"
+  rm -f /tmp/gamevault-data.tgz
+fi
+[ -f "$HOME/docker/gamevault/app/rss_proxy_server.py" ] || echo "   ATTENTION : le code de GameVault est absent de ~/docker/gamevault/app (le conteneur gamevault ne démarrera pas)."
 if [ -f /tmp/uptime-kuma-data.tgz ]; then
   echo "   Restauration des données Uptime Kuma"
   tar xzf /tmp/uptime-kuma-data.tgz -C "$HOME/docker/uptime-kuma/data"

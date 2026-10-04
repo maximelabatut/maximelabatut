@@ -130,7 +130,7 @@ Chaque application est un tiroir (`<details>`) regroupant son conteneur nginx et
 | Tiroir | Conteneurs |
 |---|---|
 | Site principal | `www` + `www-status` + `cloudflared-www` |
-| GameVault | `gamevault` + `cloudflared-gamevault` |
+| GameVault | `gamevault` (Python) + `cloudflared-gamevault` |
 | Web2 | `web2` + `cloudflared-web2` |
 
 **Outils techniques et maintenance** (`tech`)
@@ -249,6 +249,61 @@ Vérifier qu'il n'y a jamais eu de ralentissement ni de sous-tension : `vcgencmd
 Le flux d'événements de Dozzle (`/api/events/stream`) renvoie la **ligne de commande complète de chaque conteneur, tokens Cloudflare compris** (`cloudflared ... tunnel run --token ...`). Avec `ports: "8084:8080"`, ce flux était lisible sans authentification par n'importe quel appareil du réseau local. Le compose publie donc Dozzle en `127.0.0.1:8084:8080` : seul le tunnel (réseau `host`) y accède, derrière Cloudflare Access. Si un token a été exposé, le régénérer (dashboard Cloudflare → tunnel → nouveau token) et mettre à jour `.env`.
 
 Netdata (port 19999, réseau `host`) reste joignable depuis le réseau local : il n'expose pas les commandes des conteneurs, mais on peut aussi le restreindre à `127.0.0.1` (`[web] bind to = 127.0.0.1` dans `netdata.conf`) si besoin.
+
+---
+
+## GameVault (application Python)
+
+Application personnelle : une page HTML (`GameVault.html`), un petit serveur Python (`rss_proxy_server.py`, bibliothèque standard uniquement, port 8787, qui relaie les requêtes du navigateur et gère le catalogue et la wishlist) et une base SQLite (`catalog.db`). Source de référence : le dossier `~/Desktop/raspberrypi/GameVault` du Mac, lancé en local par `run.bat` (Windows).
+
+### Hébergement sur le Pi
+
+| Élément | Emplacement | Versionné dans le dépôt du homelab ? |
+|---|---|---|
+| Code (page, serveur, logos) | `~/docker/gamevault/app/` | non (`.gitignore`) |
+| Base `catalog.db` | `~/docker/gamevault/data/` | non (`.gitignore`), sauvegardée sur le Mac |
+
+Le service `gamevault` du `docker-compose.yml` utilise `python:3.12-slim`, lance `python rss_proxy_server.py` et publie `127.0.0.1:8081` → conteneur `8787` : la route du tunnel `gamevault.maximelabatut.com` → `http://localhost:8081` est inchangée. Le serveur sert aussi la page et les logos (`/`, `/logo.png`), donc tout passe par une seule adresse.
+
+**Modifications du code d'origine** (minimales, le lancement local par `run.bat` fonctionne toujours) :
+- `GAMEVAULT_HOST` (défaut `localhost`) : l'adresse d'écoute, à `0.0.0.0` dans Docker
+- `GAMEVAULT_DB` : chemin de la base (défaut : `catalog.db` à côté du script)
+- le serveur sert `GameVault.html`, `logo.png` et `logo.ico`
+- dans le HTML, `API_BASE` vaut `http://localhost:8787` en `file://` et la même origine sinon (les 10 appels `http://localhost:8787/...` passent par cette constante)
+
+### Accès : derrière Cloudflare Access
+
+⚠️ Le serveur expose `/proxy?url=<n'importe quelle URL>` (téléchargement pour le compte du visiteur, sans restriction), des routes d'écriture sans authentification (`POST /games`, `/wishlist`, `DELETE /wishlist/<clé>`) et un CORS ouvert à tous. Publié sans protection, ce serait un **proxy ouvert** (accès possible aux services du réseau local, usage anonyme du Pi comme relais) avec une base modifiable par n'importe qui. `gamevault.maximelabatut.com` doit donc être dans les **destinations de l'application Cloudflare Access** (email + code + MFA), **avant** de lancer le conteneur : la route de tunnel existe déjà et serait publique dès son démarrage.
+
+### Déploiement initial (une fois)
+
+1. Cloudflare Access : ajouter `gamevault.maximelabatut.com` aux destinations de l'application.
+2. Sur le Pi, le dossier `gamevault` appartenait à `root` (créé autrefois par Docker) : `sudo chown -R maxime:maxime ~/docker/gamevault`, puis `git pull`.
+3. Depuis le Mac, copier le code et la base (via le partage `/Volumes/docker`) :
+```bash
+mkdir -p /Volumes/docker/gamevault/app /Volumes/docker/gamevault/data
+cd ~/Desktop/raspberrypi/GameVault
+cp GameVault.html rss_proxy_server.py logo.png logo.ico /Volumes/docker/gamevault/app/
+cp catalog.db /Volumes/docker/gamevault/data/catalog.db
+```
+4. Sur le Pi : `docker compose up -d gamevault www-status`, puis `docker compose logs gamevault | tail`.
+5. Uptime Kuma : modifier la sonde GameVault et mettre l'URL `http://gamevault:8787/` (voir ci-dessous).
+6. Relancer `~/Desktop/raspberrypi/sauvegarder-pi.sh` pour produire `gamevault-data.tgz`.
+
+### Mettre à jour le code
+
+Modifier les fichiers dans `~/Desktop/raspberrypi/GameVault`, les recopier dans `/Volumes/docker/gamevault/app/`, puis `docker compose restart gamevault` sur le Pi.
+
+### Surveillance et statut public
+
+- **Page d'accueil (www)** : la carte GameVault reste affichée. `www-status` ne peut plus tester l'URL publique (Cloudflare Access répondrait par sa page de connexion) : il teste l'application par son nom sur le réseau Docker, `http://gamevault:8787/` (`www/status.sh`).
+- **Uptime Kuma** : même raison, remplacer l'URL de la sonde `gamevault.maximelabatut.com` par `http://gamevault:8787/` (les services d'un même `docker-compose.yml` partagent un réseau et se joignent par leur nom ; `host.docker.internal` ne convient pas, le port n'étant publié que sur `127.0.0.1`).
+
+### Sauvegarde et restauration
+
+- `sauvegarder-pi.sh` prend un instantané cohérent de la base (`sqlite3 .backup`), le vérifie (`PRAGMA integrity_check`, nombre de jeux) et l'enregistre dans `~/Desktop/raspberrypi/gamevault-data.tgz` (environ 5 Mo pour ~2 500 jeux), avec le `.env` et les données d'Uptime Kuma. Version précédente en `.prev`. Le fichier `catalog.db` du dossier `GameVault` du Mac n'est **jamais écrasé** : il reste la copie de départ.
+- `restaurer-pi.sh` envoie le **code** (depuis le dossier `GameVault` du Mac) et `gamevault-data.tgz` ; `restore.sh` les déploie dans `~/docker/gamevault/app` et `~/docker/gamevault/data` avant le premier lancement.
+- Si le dossier `GameVault` du Mac est perdu, le code n'est nulle part ailleurs (il n'est pas dans le dépôt du homelab) : le versionner dans un dépôt **privé** est recommandé (le dépôt `github.com/maximelabatut/gamevault` est actuellement public).
 
 ---
 

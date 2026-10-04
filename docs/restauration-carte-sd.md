@@ -25,12 +25,13 @@ Il demande **trois saisies** :
 2. ce même mot de passe pour `sudo` (une fois : le script maintient ensuite l'autorisation, car `sudo` l'oublierait après 5 minutes pendant les mises à jour)
 3. le mot de passe Samba à choisir (saisi deux fois, jamais stocké)
 
-Il enchaîne tout seul : envoi du `.env` et des données d'Uptime Kuma, mise à jour système, Docker, clone GitHub, `DOCKER_GID`, Samba, module Argon avec sa courbe de ventilation, `docker compose up -d`, puis redémarrage du Pi. Compter **20 à 30 minutes** (surtout de l'attente). Il peut être relancé sans risque s'il s'interrompt.
+Il enchaîne tout seul : envoi du `.env`, des données d'Uptime Kuma, du code et de la base de GameVault, mise à jour système, Docker, clone GitHub, `DOCKER_GID`, Samba, module Argon avec sa courbe de ventilation, `docker compose up -d`, puis redémarrage du Pi. Compter **20 à 30 minutes** (surtout de l'attente). Il peut être relancé sans risque s'il s'interrompt.
 
 ### 3. Vérifier (Mac, ~2 min après la fin)
 
 - `ssh maxime@maxime.local` puis `docker compose -f ~/docker/docker-compose.yml ps` : tous les conteneurs `Up`
 - `https://www.maximelabatut.com`, `https://config.maximelabatut.com` (email + code + MFA)
+- `https://gamevault.maximelabatut.com` (derrière Access) : le catalogue de jeux est là, avec la même base qu'avant
 - `https://uptime.maximelabatut.com` : le compte, les 3 sondes et la notification ntfy sont déjà là (aucune reconfiguration)
 - Finder → `Cmd+K` → `smb://maxime.local/docker`
 - `vcgencmd get_throttled` → `throttled=0x0`
@@ -41,12 +42,14 @@ Il enchaîne tout seul : envoi du `.env` et des données d'Uptime Kuma, mise à 
 |---|---|---|
 | `.env` (7 tokens) | `~/Desktop/raspberrypi/.env` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (après tout changement de token) |
 | Données d'Uptime Kuma (compte, canal ntfy, sondes) | `~/Desktop/raspberrypi/uptime-kuma-data.tgz` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (après un changement de sondes ou de notification) |
+| Base de GameVault (catalogue, wishlist) | `~/Desktop/raspberrypi/gamevault-data.tgz` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (périodiquement : la base évolue à chaque utilisation) |
+| Code de GameVault | `~/Desktop/raspberrypi/GameVault/` (`GameVault.html`, `rss_proxy_server.py`, `logo.png`, `logo.ico`) | si modifié ; absent du dépôt du homelab, à garder ailleurs aussi |
 | `sauvegarder-pi.sh` | `~/Desktop/raspberrypi/` (copie du repo : `mac/sauvegarder-pi.sh`) | si modifié dans le repo |
 | `restaurer-pi.sh` | `~/Desktop/raspberrypi/` (copie du repo : `mac/restaurer-pi.sh`) | si modifié dans le repo |
 | `restore.sh` | repo GitHub (le script Mac le télécharge) ; copie locale en secours dans `~/Desktop/raspberrypi/` | si modifié dans le repo |
 | Configuration | GitHub, à jour | `git status` et `git log origin/main..HEAD --oneline` sur le Pi doivent être vides |
 
-`sauvegarder-pi.sh` (Pi allumé ; mot de passe du Pi pour SSH puis pour `sudo`) copie le `.env` et un instantané **cohérent** de la base d'Uptime Kuma (SQLite `.backup`, qui tient compte du journal WAL : une simple copie de `kuma.db` perdrait les écritures récentes), vérifie son intégrité, et conserve la version précédente en `.prev`. Ces fichiers contiennent des secrets (tokens, hash du compte, canal ntfy) : droits `600`, ne jamais les versionner. Garder aussi le mot de passe Samba et le nom du canal ntfy dans le gestionnaire de mots de passe.
+`sauvegarder-pi.sh` (Pi allumé ; mot de passe du Pi pour SSH puis pour `sudo`) copie le `.env` et des instantanés **cohérents** des bases d'Uptime Kuma et de GameVault (SQLite `.backup`, qui tient compte du journal WAL : une simple copie de `kuma.db` perdrait les écritures récentes), vérifie son intégrité, et conserve la version précédente en `.prev`. Ces fichiers contiennent des secrets (tokens, hash du compte, canal ntfy) : droits `600`, ne jamais les versionner. Garder aussi le mot de passe Samba et le nom du canal ntfy dans le gestionnaire de mots de passe.
 
 ## Procédure manuelle (si le script ne passe pas)
 

@@ -35,7 +35,7 @@ Ce dépôt contient **toute la configuration de mon serveur personnel** : les co
 | Adresse | Description | Accès |
 |---|---|---|
 | [www.maximelabatut.com](https://www.maximelabatut.com) | Page d'accueil du homelab, avec statut en direct | Public |
-| [gamevault.maximelabatut.com](https://gamevault.maximelabatut.com) | GameVault | Public |
+| `gamevault.maximelabatut.com` | GameVault (application perso, Python + SQLite) | Cloudflare Access + MFA |
 | [web2.maximelabatut.com](https://web2.maximelabatut.com) | Web2, terrain d'expériences | Public |
 | `config.maximelabatut.com` | Dashboard de supervision | Cloudflare Access + MFA |
 | `netdata.maximelabatut.com` | Métriques détaillées (Netdata) | Cloudflare Access + MFA |
@@ -77,7 +77,8 @@ Le Pi ouvre lui-même la connexion vers Cloudflare. Rien n'est exposé directeme
 ├── docker-compose.yml      # les 16 conteneurs (sites, tunnels, supervision)
 ├── .env.example            # variables attendues (le vrai .env n'est jamais versionné)
 ├── www/                    # page d'accueil + www-status (statut public en direct)
-├── gamevault/  web2/       # applications (nginx)
+├── web2/                   # application (nginx)
+├── gamevault/              # application Python (code et base hors dépôt, sauvegardées sur le Mac)
 ├── dashboard/              # dashboard sur mesure (nginx + liste des conteneurs)
 ├── netdata/                # configuration de Netdata
 ├── argon/                  # courbe du ventilateur du boîtier Argon ONE
