@@ -1,7 +1,8 @@
 #!/bin/bash
 # Restauration complète du Pi sur une carte SD vierge. Lancé par restaurer-pi.sh (Mac) via ssh -t.
 # Prérequis : restaurer-pi.sh a déchiffré la dernière archive de sauvegarde et copié sur le Pi, dans /tmp : pi.env, uptime-kuma-data.tgz,
-# gamevault-data.tgz, <dépôt>-deploy-key, homelab-backup-config.tgz. Relançable sans risque.
+# gamevault-data.tgz, <dépôt>-deploy-key, homelab-backup-config.tgz ; facultatifs : pi.smb (mot de passe Samba), pi.authkey (clé publique
+# du poste). Relançable sans risque.
 set -euo pipefail
 
 REPO="https://github.com/maximelabatut/maximelabatut.git"
@@ -14,7 +15,16 @@ echo "== Droits administrateur (mot de passe du Pi)"
 sudo -v
 ( while true; do sudo -n true 2>/dev/null; sleep 50; kill -0 "$$" 2>/dev/null || exit; done ) &
 KEEPALIVE=$!
-trap 'kill "$KEEPALIVE" 2>/dev/null || true' EXIT
+trap 'kill "$KEEPALIVE" 2>/dev/null || true; rm -f /tmp/pi.smb /tmp/pi.authkey' EXIT
+
+# Clé publique du poste de restauration : installée tout de suite, pour que le poste se reconnecte par clé après le redémarrage
+# (les mots de passe restent acceptés ; le durcissement SSH reste une étape à part).
+if [ -s /tmp/pi.authkey ]; then
+  install -d -m 700 "$HOME/.ssh"
+  touch "$HOME/.ssh/authorized_keys"; chmod 600 "$HOME/.ssh/authorized_keys"
+  grep -qxF "$(head -1 /tmp/pi.authkey)" "$HOME/.ssh/authorized_keys" || head -1 /tmp/pi.authkey >> "$HOME/.ssh/authorized_keys"
+  rm -f /tmp/pi.authkey
+fi
 
 echo "== 1/7 Système"
 sudo apt-get update -y
@@ -115,12 +125,17 @@ if ! grep -q '^\[docker\]' /etc/samba/smb.conf; then
 EOF
 fi
 sudo systemctl enable --now smbd
-while true; do
-  read -r -s -p "Choisis le mot de passe Samba de $USER : " P1; echo
-  read -r -s -p "Confirme-le : " P2; echo
-  [ -n "$P1" ] && [ "$P1" = "$P2" ] && break
-  echo "   Les mots de passe sont vides ou différents, recommence."
-done
+if [ -s /tmp/pi.smb ]; then
+  # Mot de passe choisi au début par restaurer-pi.sh (fichier temporaire 600, supprimé aussitôt lu)
+  P1="$(head -1 /tmp/pi.smb)"; rm -f /tmp/pi.smb
+else
+  while true; do
+    read -r -s -p "Choisis le mot de passe Samba de $USER : " P1; echo
+    read -r -s -p "Confirme-le : " P2; echo
+    [ -n "$P1" ] && [ "$P1" = "$P2" ] && break
+    echo "   Les mots de passe sont vides ou différents, recommence."
+  done
+fi
 printf '%s\n%s\n' "$P1" "$P1" | sudo smbpasswd -s -a "$USER"
 unset P1 P2
 

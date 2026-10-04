@@ -374,7 +374,7 @@ Le **Pi sauvegarde lui-même**, chaque jour, vers un dépôt GitHub **privé** d
 ### Mise en place (une fois)
 
 1. **Sur le Mac** : installer `age` (cf. « Installer `age` sur le Mac » ci-dessous), puis afficher la clé **publique** SSH : `cat ~/.ssh/id_ed25519_homelab.pub` (une ligne `ssh-ed25519 AAAA...`, non secrète). C'est elle qui chiffre les sauvegardes ; la clé **privée** (`id_ed25519_homelab`, protégée par sa phrase secrète) les déchiffre. Aucune nouvelle clé à créer. Vérifier que le fichier de clé et sa phrase sont bien dans le gestionnaire de mots de passe. Ne jamais envoyer la clé privée à qui que ce soit, ni la mettre sur le Pi ou dans git.
-2. **Dépôt GitHub** : privé, vide (`maximelabatut-backups`).
+2. **Dépôt GitHub** : privé, vide (`maximelabatut-backups`). Y enregistrer aussi **`id_ed25519_homelab.pub` comme deploy key en lecture seule** (Settings → Deploy keys, **sans** « Allow write access ») : elle permet à `restaurer-pi.sh` de cloner l'archive sans token ni identifiants GitHub. Une clé SSH ne peut être deploy key que d'un seul dépôt : celle-ci n'est utilisée sur aucun autre.
 3. **Sur le Pi** : `cd ~/docker && git pull && sudo bash pi/install-backup.sh`. Le script installe `age`, le timer et les scripts, demande la clé **publique** (la ligne `ssh-ed25519 AAAA...` de l'étape 1 ; une clé `age1...` est aussi acceptée), génère la clé d'écriture et affiche sa partie publique. L'ajouter dans GitHub → `maximelabatut-backups` → Settings → Deploy keys → Add deploy key, en **cochant « Allow write access »** (cette option ne peut pas être modifiée ensuite), puis Entrée : le script propose de lancer la première sauvegarde.
 4. **Vérifier** : le fichier `homelab-AAAA-MM-JJ.tar.gz.age` apparaît sur GitHub ; le télécharger et contrôler qu'il se déchiffre (`age` demande la phrase secrète de la clé, qu'il ne reprend pas du Trousseau). **Une sauvegarde jamais testée n'est pas une sauvegarde.**
    ```bash
@@ -407,6 +407,10 @@ L'ancien système (script `sauvegarder-pi.sh` lancé par `launchd` sur le Mac, r
 1. Installer la nouvelle sauvegarde sur le Pi et **valider le déchiffrement d'une archive** (étapes 1 à 4 ci-dessus).
 2. **Seulement ensuite**, supprimer la tâche du Mac : `~/Backups/raspberrypi/planifier-sauvegarde.sh uninstall` (sinon l'ancien script échouerait chaque jour, sa règle `sudo` ayant été retirée par `install-backup.sh`).
 3. `~/Backups/raspberrypi` n'est plus mis à jour et contient des **secrets en clair** (`.env`, bases, clés de déploiement). Après quelques sauvegardes automatiques réussies, le supprimer ou en effacer le contenu (hors scripts périmés, à ne pas réutiliser : les versions à jour sont dans le dépôt).
+
+### Tester la restauration (sans Pi)
+
+`~/homelab-restore/mac/restaurer-pi.sh --verifier` récupère la dernière archive, la déchiffre et contrôle qu'elle est restaurable : fraîcheur, contenu, tokens, intégrité des bases, clés de déploiement et d'écriture joignant leurs dépôts, clé de chiffrement bien détenue. Rien n'est écrit ailleurs que dans un dossier temporaire du poste. À lancer chaque mois ; détail dans [`restauration-pas-a-pas.md`](restauration-pas-a-pas.md).
 
 ### Fonctionnement d'une exécution
 

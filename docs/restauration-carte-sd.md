@@ -30,15 +30,19 @@ git clone https://github.com/maximelabatut/maximelabatut.git ~/homelab-restore
 ~/homelab-restore/mac/restaurer-pi.sh
 ```
 
-Il récupère la dernière archive dans le dépôt de sauvegardes (GitHub demande tes identifiants : nom d'utilisateur et un *personal access token*, ou ta session `gh`). **Variante sans identifiants** : télécharger le fichier `homelab-AAAA-MM-JJ.tar.gz.age` depuis la page GitHub du dépôt (compte connecté) et le passer en argument : `~/homelab-restore/mac/restaurer-pi.sh ~/Downloads/homelab-AAAA-MM-JJ.tar.gz.age`.
+Il clone la dernière archive du dépôt de sauvegardes **avec ta clé SSH** `id_ed25519_homelab` (enregistrée une fois comme *deploy key en lecture seule* de ce dépôt : aucun token ni identifiant GitHub). Repli : HTTPS (identifiants GitHub), ou télécharger le fichier `homelab-AAAA-MM-JJ.tar.gz.age` depuis la page GitHub du dépôt et le passer en argument : `~/homelab-restore/mac/restaurer-pi.sh ~/Downloads/homelab-AAAA-MM-JJ.tar.gz.age`.
 
-Il demande **quatre saisies** :
-1. la phrase secrète de la clé `~/.ssh/id_ed25519_homelab` (saisie par `age`, qui ne la reprend pas du Trousseau). Sur un poste neuf : remettre d'abord le fichier de clé depuis le gestionnaire de mots de passe dans `~/.ssh/id_ed25519_homelab` (`chmod 600`), ou indiquer son chemin avec `AGE_KEY_FILE=...`
-2. le mot de passe de l'utilisateur `maxime` du Pi, pour SSH (une seule fois pour toute la session)
-3. ce même mot de passe pour `sudo` (une fois : le script maintient ensuite l'autorisation, car `sudo` l'oublierait après 5 minutes pendant les mises à jour)
-4. le mot de passe Samba à choisir (saisi deux fois, jamais stocké)
+**Toutes les saisies sont demandées au début**, puis le script enchaîne seul :
+1. la phrase secrète de la clé SSH (agent SSH, puis `age` pour déchiffrer)
+2. le mot de passe Samba à choisir (deux saisies, jamais stocké)
+3. le mot de passe de l'utilisateur `maxime` du Pi, pour SSH (une seule fois)
+4. ce même mot de passe pour `sudo` (une fois : le script maintient ensuite l'autorisation)
 
-Il déchiffre l'archive, affiche son résumé (date, nombre de tokens, de sondes, de jeux) puis enchaîne tout seul : envoi du `.env`, des données d'Uptime Kuma et de GameVault, des clés de déploiement (clone du code des dépôts privés) et de la configuration de la sauvegarde quotidienne, mise à jour système, Docker, clone GitHub, `DOCKER_GID`, Samba, module Argon avec sa courbe de ventilation, `docker compose up -d`, puis redémarrage du Pi. Compter **20 à 30 minutes** (surtout de l'attente). Il peut être relancé sans risque s'il s'interrompt. La sauvegarde quotidienne repart seule (timer systemd), avec les mêmes clés : rien à reconfigurer.
+Il déchiffre l'archive, affiche son résumé et **contrôle qu'elle est restaurable** (fraîcheur, bases saines, tokens, clés de déploiement), puis enchaîne : envoi du `.env`, des données d'Uptime Kuma et de GameVault, des clés de déploiement et de la configuration de la sauvegarde quotidienne, mise à jour système, Docker, clone GitHub, `DOCKER_GID`, Samba, module Argon, `docker compose up -d`, redémarrage du Pi. Compter **20 à 30 minutes** (surtout de l'attente). Il peut être relancé sans risque. La sauvegarde quotidienne repart seule (timer systemd), avec les mêmes clés.
+
+Après le redémarrage, le script **attend le Pi**, affiche un **rapport** (conteneurs, température, contrôle d'accès, timer de sauvegarde), propose de **connecter le compte caméra** (code de vérification), ouvre le partage Samba dans Finder, et rappelle ce qui reste manuel (durcissement SSH, sites protégés par Access dans le navigateur).
+
+**Tester à blanc, sans Pi** (à faire de temps en temps) : `~/homelab-restore/mac/restaurer-pi.sh --verifier`.
 
 ### 3. Vérifier (Mac, ~2 min après la fin)
 
