@@ -25,7 +25,7 @@ Il demande **trois saisies** :
 2. ce même mot de passe pour `sudo` (une fois : le script maintient ensuite l'autorisation, car `sudo` l'oublierait après 5 minutes pendant les mises à jour)
 3. le mot de passe Samba à choisir (saisi deux fois, jamais stocké)
 
-Il enchaîne tout seul : envoi du `.env`, des données d'Uptime Kuma, du code et de la base de GameVault, mise à jour système, Docker, clone GitHub, `DOCKER_GID`, Samba, module Argon avec sa courbe de ventilation, `docker compose up -d`, puis redémarrage du Pi. Compter **20 à 30 minutes** (surtout de l'attente). Il peut être relancé sans risque s'il s'interrompt.
+Il enchaîne tout seul : envoi du `.env`, des données d'Uptime Kuma, de la clé de déploiement (clone du code de GameVault depuis le dépôt privé) et de la base de GameVault, mise à jour système, Docker, clone GitHub, `DOCKER_GID`, Samba, module Argon avec sa courbe de ventilation, `docker compose up -d`, puis redémarrage du Pi. Compter **20 à 30 minutes** (surtout de l'attente). Il peut être relancé sans risque s'il s'interrompt.
 
 ### 3. Vérifier (Mac, ~2 min après la fin)
 
@@ -43,7 +43,8 @@ Il enchaîne tout seul : envoi du `.env`, des données d'Uptime Kuma, du code et
 | `.env` (7 tokens) | `~/Desktop/raspberrypi/.env` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (après tout changement de token) |
 | Données d'Uptime Kuma (compte, canal ntfy, sondes) | `~/Desktop/raspberrypi/uptime-kuma-data.tgz` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (après un changement de sondes ou de notification) |
 | Base de GameVault (catalogue, wishlist) | `~/Desktop/raspberrypi/gamevault-data.tgz` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (périodiquement : la base évolue à chaque utilisation) |
-| Code de GameVault | `~/Desktop/raspberrypi/GameVault/` (`GameVault.html`, `rss_proxy_server.py`, `logo.png`, `logo.ico`) | si modifié ; absent du dépôt du homelab, à garder ailleurs aussi |
+| Clé de déploiement de GameVault (lecture seule) | `~/Desktop/raspberrypi/gamevault-deploy-key` (+ `.pub`, enregistrée dans les Deploy keys du dépôt privé) | une seule fois ; le code est cloné depuis `github.com/maximelabatut/gamevault` à la restauration |
+| Code de GameVault (repli) | dossier `~/Desktop/raspberrypi/GameVault/` | utilisé seulement si la clé est absente ou si le clone échoue |
 | `sauvegarder-pi.sh` | `~/Desktop/raspberrypi/` (copie du repo : `mac/sauvegarder-pi.sh`) | si modifié dans le repo |
 | `restaurer-pi.sh` | `~/Desktop/raspberrypi/` (copie du repo : `mac/restaurer-pi.sh`) | si modifié dans le repo |
 | `restore.sh` | repo GitHub (le script Mac le télécharge) ; copie locale en secours dans `~/Desktop/raspberrypi/` | si modifié dans le repo |

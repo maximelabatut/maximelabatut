@@ -27,11 +27,39 @@ sudo usermod -aG docker "$USER"
 echo "== 3/7 Dépôt GitHub"
 [ -d "$HOME/docker/.git" ] || git clone "$REPO" "$HOME/docker"
 mkdir -p "$HOME/docker/www/html/data" "$HOME/docker/dashboard/data" "$HOME/docker/uptime-kuma/data" "$HOME/docker/gamevault/app" "$HOME/docker/gamevault/data"
-if [ -f /tmp/gamevault-app.tgz ]; then
-  echo "   Déploiement du code GameVault"
-  tar xzf /tmp/gamevault-app.tgz -C "$HOME/docker/gamevault/app"
-  rm -f /tmp/gamevault-app.tgz
+GV_APP="$HOME/docker/gamevault/app"
+if [ -f /tmp/gamevault-deploy-key ]; then
+  echo "   Code GameVault : clone du dépôt privé (clé de déploiement en lecture seule)"
+  mkdir -p "$HOME/.ssh"; chmod 700 "$HOME/.ssh"
+  install -m 600 /tmp/gamevault-deploy-key "$HOME/.ssh/gamevault_deploy"
+  rm -f /tmp/gamevault-deploy-key
+  if ! grep -q '^Host github-gamevault' "$HOME/.ssh/config" 2>/dev/null; then
+    cat >> "$HOME/.ssh/config" <<SSHCONF
+Host github-gamevault
+  HostName github.com
+  User git
+  IdentityFile $HOME/.ssh/gamevault_deploy
+  IdentitiesOnly yes
+  StrictHostKeyChecking accept-new
+SSHCONF
+    chmod 600 "$HOME/.ssh/config"
+  fi
+  if [ -d "$GV_APP/.git" ]; then
+    git -C "$GV_APP" pull --ff-only || echo "   pull impossible, le code existant est conservé"
+  else
+    rm -rf "$GV_APP.tmp"
+    if git clone git@github-gamevault:maximelabatut/gamevault.git "$GV_APP.tmp"; then
+      rm -rf "$GV_APP"; mv "$GV_APP.tmp" "$GV_APP"
+    else
+      echo "   Clone impossible (clé non enregistrée dans le dépôt ?)"; rm -rf "$GV_APP.tmp"
+    fi
+  fi
 fi
+if [ ! -f "$GV_APP/rss_proxy_server.py" ] && [ -f /tmp/gamevault-app.tgz ]; then
+  echo "   Code GameVault : repli sur l'archive envoyée depuis le Mac"
+  tar xzf /tmp/gamevault-app.tgz -C "$GV_APP"
+fi
+rm -f /tmp/gamevault-app.tgz
 if [ -f /tmp/gamevault-data.tgz ]; then
   echo "   Restauration de la base GameVault"
   tar xzf /tmp/gamevault-data.tgz -C "$HOME/docker/gamevault/data"

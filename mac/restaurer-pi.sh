@@ -40,13 +40,17 @@ else
   echo "Pas de sauvegarde Uptime Kuma ($KUMA_ARCHIVE) : à reconfigurer à la main."
 fi
 GV_DIR="${GV_DIR:-$HOME/Desktop/raspberrypi/GameVault}"
+GV_KEY="${GV_KEY:-$HOME/Desktop/raspberrypi/gamevault-deploy-key}"
 GV_DATA="${GV_DATA:-$HOME/Desktop/raspberrypi/gamevault-data.tgz}"
-if [ -f "$GV_DIR/rss_proxy_server.py" ] && [ -f "$GV_DIR/GameVault.html" ]; then
+if [ -f "$GV_KEY" ]; then
+  scp "${OPTS[@]}" "$GV_KEY" "$HOST:/tmp/gamevault-deploy-key"
+  echo "Clé de déploiement envoyée : le code de GameVault sera récupéré depuis le dépôt privé GitHub."
+elif [ -f "$GV_DIR/rss_proxy_server.py" ] && [ -f "$GV_DIR/GameVault.html" ]; then
   tar czf "$TMP/gamevault-app.tgz" -C "$GV_DIR" GameVault.html rss_proxy_server.py logo.png logo.ico
   scp "${OPTS[@]}" "$TMP/gamevault-app.tgz" "$HOST:/tmp/gamevault-app.tgz"
-  echo "Code GameVault envoyé (depuis $GV_DIR)."
+  echo "Pas de clé de déploiement ($GV_KEY) : code GameVault envoyé depuis $GV_DIR."
 else
-  echo "Code GameVault introuvable dans $GV_DIR : GameVault ne démarrera pas tant que ~/docker/gamevault/app est vide."
+  echo "Ni clé de déploiement ni code GameVault local : GameVault ne démarrera pas tant que ~/docker/gamevault/app est vide."
 fi
 if [ -f "$GV_DATA" ]; then
   scp "${OPTS[@]}" "$GV_DATA" "$HOST:/tmp/gamevault-data.tgz"

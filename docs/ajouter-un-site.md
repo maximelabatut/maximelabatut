@@ -292,7 +292,21 @@ cp catalog.db /Volumes/docker/gamevault/data/catalog.db
 
 ### Mettre à jour le code
 
-Modifier les fichiers dans `~/Desktop/raspberrypi/GameVault`, les recopier dans `/Volumes/docker/gamevault/app/`, puis `docker compose restart gamevault` sur le Pi.
+Le code de `~/docker/gamevault/app/` est un **clone du dépôt privé** `github.com/maximelabatut/gamevault`. Pousser les modifications dans le dépôt (depuis un clone de travail), puis sur le Pi :
+```bash
+git -C ~/docker/gamevault/app pull
+cd ~/docker && docker compose restart gamevault
+```
+
+### Clé de déploiement (lecture seule)
+
+Le dépôt étant privé, le Pi s'y authentifie avec une **clé de déploiement** : une clé SSH dédiée à ce seul dépôt, en **lecture seule**, qui n'expire pas.
+
+- **Création (Mac)** : `ssh-keygen -t ed25519 -N "" -C "gamevault-deploy@homelab" -f ~/Desktop/raspberrypi/gamevault-deploy-key` (la partie privée reste sur le Mac, en `600`, avec le `.env` et les archives ; **ne jamais la versionner**).
+- **Enregistrement** : GitHub → dépôt `gamevault` → Settings → Deploy keys → Add deploy key, avec le contenu de `gamevault-deploy-key.pub`. ⚠️ **Ne pas cocher « Allow write access »**. Cette option ne peut pas être modifiée ensuite : pour la changer, supprimer la clé et la rajouter.
+- **Sur le Pi** : `~/.ssh/gamevault_deploy` (`600`) et un bloc `Host github-gamevault` dans `~/.ssh/config` (`IdentityFile`, `IdentitiesOnly yes`) ; le dépôt se clone avec `git clone git@github-gamevault:maximelabatut/gamevault.git`. `restore.sh` fait tout cela à la restauration.
+- **Tester qu'elle est bien en lecture seule** : tenter un `git push` vers une **branche jetable** (`git push origin HEAD:refs/heads/_test-lecture-seule`), jamais vers `main`. Le refus attendu : `The key you are authenticating with has been marked as read only`. (Un test sur `main` avec une clé qui s'avérerait inscriptible laisserait un commit dans l'historique : c'est arrivé une fois, nettoyé par push forcé protégé.)
+- **Empreintes de `github.com`** : en cas d'avertissement `REMOTE HOST IDENTIFICATION HAS CHANGED`, ne rien contourner. Comparer d'abord les empreintes présentées (`ssh-keyscan github.com | ssh-keygen -lf -`) aux empreintes officielles (`curl -s https://api.github.com/meta`, champ `ssh_key_fingerprints`). Si elles correspondent, l'entrée du `known_hosts` est simplement périmée : `ssh-keygen -R github.com`, puis ré-enregistrer les clés vérifiées. Si elles diffèrent : s'arrêter, c'est peut-être une interception. `restore.sh` utilise `StrictHostKeyChecking accept-new` : la première connexion enregistre la clé de GitHub sans la vérifier.
 
 ### Surveillance et statut public
 
@@ -302,8 +316,8 @@ Modifier les fichiers dans `~/Desktop/raspberrypi/GameVault`, les recopier dans 
 ### Sauvegarde et restauration
 
 - `sauvegarder-pi.sh` prend un instantané cohérent de la base (`sqlite3 .backup`), le vérifie (`PRAGMA integrity_check`, nombre de jeux) et l'enregistre dans `~/Desktop/raspberrypi/gamevault-data.tgz` (environ 5 Mo pour ~2 500 jeux), avec le `.env` et les données d'Uptime Kuma. Version précédente en `.prev`. Le fichier `catalog.db` du dossier `GameVault` du Mac n'est **jamais écrasé** : il reste la copie de départ.
-- `restaurer-pi.sh` envoie le **code** (depuis le dossier `GameVault` du Mac) et `gamevault-data.tgz` ; `restore.sh` les déploie dans `~/docker/gamevault/app` et `~/docker/gamevault/data` avant le premier lancement.
-- Le code est aussi versionné dans le dépôt **privé** `github.com/maximelabatut/gamevault` (2 commits : la version d'origine, puis les adaptations Docker ; sans `catalog.db`, `run.bat` ni `.claude`). Ce dépôt doit rester **privé**. Le dossier `GameVault` du Mac reste la source utilisée par `restaurer-pi.sh` : après une modification du code, la reporter aussi dans le dépôt (`git add`, `commit`, `push`) et dans `/Volumes/docker/gamevault/app/`. En cas de perte du dossier du Mac, le code se récupère par `git clone https://github.com/maximelabatut/gamevault.git` (authentification GitHub requise, dépôt privé).
+- `restaurer-pi.sh` envoie la **clé de déploiement** et `gamevault-data.tgz` ; `restore.sh` **clone le dépôt privé** dans `~/docker/gamevault/app` (code toujours à jour) et restaure la base dans `~/docker/gamevault/data`, avant le premier lancement. L'export ne transporte donc que la **base**, plus de code. Repli : si la clé est absente ou si le clone échoue, le code du dossier `GameVault` du Mac est envoyé à la place.
+- Le code est versionné dans le dépôt **privé** `github.com/maximelabatut/gamevault` (2 commits : la version d'origine, puis les adaptations Docker ; sans `catalog.db`, `run.bat` ni `.claude`) et c'est **lui la source de vérité** du code. Ce dépôt doit rester **privé**. Le dossier `GameVault` du Mac ne sert plus que de repli de restauration et de copie de départ de `catalog.db`.
 
 ---
 
