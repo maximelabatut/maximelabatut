@@ -44,48 +44,50 @@ Ce dépôt contient **toute la configuration de mon serveur personnel** : les co
 
 ## Architecture
 
+### Accès : du visiteur au conteneur
+
 ```mermaid
-flowchart TB
-    V(["Visiteur"])
-    subgraph NET ["Internet"]
-        CF["Cloudflare<br/>DNS · TLS · Access + MFA"]
-        GH[("GitHub<br/>code public<br/>sauvegardes chiffrées (dépôt privé)")]
-        NTFY["ntfy.sh"]
-    end
+flowchart LR
+    V(["Visiteur"]) -->|"HTTPS"| CF["Cloudflare<br/>DNS · TLS · Access + MFA"]
+    CF ==>|"tunnel chiffré<br/>connexion sortante du Pi"| CFD
     subgraph PI ["Raspberry Pi 4 · Docker Compose"]
         CFD["cloudflared<br/>1 tunnel par application"]
-        subgraph APPS ["Applications"]
-            SITES["Sites publics<br/>nginx"]
-            PRIV["Applications perso<br/>Python · protégées par Access"]
-        end
-        subgraph SUP ["Supervision · protégée par Access"]
-            DASH["Dashboard"]
-            ND["Netdata"]
-            DZ["Dozzle"]
-            UK["Uptime Kuma"]
-        end
-        BK["Sauvegarde quotidienne<br/>timer systemd · SQLite · age"]
-        SMB["Samba"]
+        CFD --> SITES["Sites publics<br/>nginx"]
+        CFD --> PRIV["Applications perso<br/>protégées par Access"]
+        CFD --> SUP["Supervision<br/>dashboard · Netdata · Dozzle · Uptime Kuma"]
     end
-    MAC["Mac<br/>poste d'administration"]
-    PHONE(["Téléphone"])
-
-    V -->|"HTTPS"| CF
-    CF ==>|"tunnel chiffré<br/>connexion sortante du Pi"| CFD
-    CFD --> SITES
-    CFD --> PRIV
-    CFD --> DASH
-    CFD --> ND
-    CFD --> DZ
-    CFD --> UK
-    UK -->|"alerte si un service ne répond plus"| NTFY --> PHONE
-    BK -->|"archive chiffrée<br/>1 par jour, 30 conservées"| GH
-    GH -.->|"restauration"| MAC
-    MAC -.->|"SSH : réinstalle tout"| PI
-    MAC <-->|"fichiers · SMB · réseau local"| SMB
 ```
 
-Chaque trait est une connexion qui existe réellement. Les traits pleins sont les flux de service ; les pointillés ne servent qu'à la restauration.
+### Alertes : être prévenu d'une panne
+
+```mermaid
+flowchart LR
+    subgraph PI ["Raspberry Pi 4"]
+        SVC["Sites et applications"]
+        UK["Uptime Kuma"]
+        BK["Sauvegarde quotidienne"]
+    end
+    UK -->|"sonde chaque service"| SVC
+    BK -.->|"signal de vie (optionnel)"| UK
+    UK -->|"alerte en cas de panne"| NTFY["ntfy.sh"]
+    NTFY --> PHONE(["Téléphone"])
+```
+
+### Sauvegarde et restauration
+
+```mermaid
+flowchart LR
+    subgraph PI ["Raspberry Pi 4"]
+        DB[("Bases de données<br/>SQLite")] --> BK["Sauvegarde quotidienne<br/>timer systemd · age"]
+        SMB["Samba"]
+    end
+    BK ==>|"archive chiffrée<br/>1 par jour, 30 conservées"| GH[("GitHub<br/>dépôt privé")]
+    GH -.->|"restauration :<br/>récupération et déchiffrement"| MAC["Mac<br/>poste d'administration"]
+    MAC -.->|"SSH : réinstalle le Pi"| PI
+    MAC <-->|"fichiers · réseau local"| SMB
+```
+
+Traits pleins : flux de service. Pointillés : signaux optionnels et restauration.
 
 ### Les flux
 
@@ -93,7 +95,7 @@ Chaque trait est une connexion qui existe réellement. Les traits pleins sont le
 |---|---|---|
 | **Visite d'un site** | Visiteur → Cloudflare → tunnel → conteneur | Le Pi **ouvre lui-même** la connexion vers Cloudflare : aucun port n'est ouvert sur la box. Chaque application a son propre tunnel, donc son propre token et sa propre panne possible. |
 | **Applications et outils d'administration** | Visiteur → Cloudflare Access (+ MFA) → tunnel → conteneur | L'authentification est faite **avant** que la requête n'atteigne le Pi. Seules les pages d'accueil publiques sont ouvertes. |
-| **Supervision et alertes** | Uptime Kuma surveille les services ; en cas de panne il notifie via ntfy, qui prévient le téléphone | La surveillance tourne **sur le Pi** : elle ne voit pas une panne du Pi lui-même (la sauvegarde envoie un signal de vie qui couvre ce cas). |
+| **Supervision et alertes** | Uptime Kuma surveille les services ; en cas de panne il notifie via ntfy, qui prévient le téléphone | La surveillance tourne **sur le Pi** : elle ne voit pas une panne du Pi lui-même. La sauvegarde peut envoyer un signal de vie quotidien (moniteur de type « Push ») : son absence déclenche alors l'alerte. |
 | **Sauvegarde** | Timer systemd → instantané cohérent des bases → archive chiffrée → dépôt GitHub privé | Une archive par jour, 30 conservées. Le Pi ne détient que la clé *publique* de chiffrement : il ne peut pas relire ses propres sauvegardes. |
 | **Restauration** | Mac : récupération de l'archive, déchiffrement, réinstallation du Pi par SSH | Une carte SD vierge devient un homelab complet en une commande. Un test à blanc sans Pi vérifie régulièrement que c'est possible. |
 | **Fichiers** | Mac ⇄ Samba (réseau local uniquement) | Le dossier du dépôt est modifiable depuis le Mac comme un disque réseau. |
