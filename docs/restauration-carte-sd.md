@@ -7,6 +7,8 @@ Tout est sur GitHub : le code et la configuration dans `github.com/maximelabatut
 2. la clé SSH **`id_ed25519_homelab`** (fichier) et sa **phrase secrète**, dans le gestionnaire de mots de passe : sans elles, les archives sont illisibles pour toujours (le fichier de clé est lui-même chiffré par la phrase)
 3. le mot de passe de l'utilisateur `maxime` choisi dans Imager (et un poste avec `bash`, `ssh`, `git` et `age` ; sur macOS 13, `brew install age` échoue : `go install filippo.io/age/cmd/age@v1.3.2`, cf. `ajouter-un-site.md`, « Installer `age` sur le Mac »)
 
+> **Version détaillée** : [`restauration-pas-a-pas.md`](restauration-pas-a-pas.md) découpe la restauration en 19 tâches, chacune avec son objectif, ses commandes, sa durée estimée et ce qui demande ton intervention.
+
 ## Procédure rapide
 
 ### 1. Flasher (Mac)
