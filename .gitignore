@@ -9,3 +9,4 @@ gamevault/app/
 gamevault/data/
 homewatch/app/
 homewatch/data/
+__pycache__/

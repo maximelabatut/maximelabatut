@@ -46,7 +46,7 @@ Après le redémarrage, le script **attend le Pi**, affiche un **rapport** (cont
 
 ### 3. Vérifier (Mac, ~2 min après la fin)
 
-- `ssh maxime@maxime.local` puis `docker compose -f ~/docker/docker-compose.yml ps` : tous les conteneurs `Up` (16 : Dozzle et son tunnel sont à la demande, cf. `bash ~/docker/pi/logs.sh on`)
+- `ssh maxime@maxime.local` puis `docker compose -f ~/docker/docker-compose.yml ps` : tous les conteneurs `Up` (17 : Dozzle et son tunnel sont à la demande, cf. le bouton du dashboard ou `bash ~/docker/pi/logs.sh on`)
 - `https://www.maximelabatut.com`, `https://config.maximelabatut.com` (email + code + MFA)
 - `https://gamevault.maximelabatut.com` (derrière Access) : le catalogue de jeux est là, avec la même base qu'avant
 - `https://uptime.maximelabatut.com` : le compte, les 3 sondes et la notification ntfy sont déjà là (aucune reconfiguration)

@@ -146,6 +146,8 @@ sudo cp "$HOME/docker/argon/argononed.conf" /etc/argononed.conf
 echo "== 7/7 Conteneurs"
 cd "$HOME/docker"
 sg docker -c "docker compose up -d"
+# Dozzle et son tunnel sont « à la demande » : on les CRÉE sans les démarrer, pour que le bouton du dashboard puisse les lancer.
+sg docker -c "docker compose --profile logs up --no-start dozzle cloudflared-logs"
 sg docker -c "docker compose ps"
 
 echo

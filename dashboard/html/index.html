@@ -132,6 +132,13 @@
   .badge.exited, .badge.dead { color: var(--bad); border-color: var(--bad); }
   .badge.other { color: var(--warn); border-color: var(--warn); }
   .badge.idle { color: var(--muted); border-color: var(--border); }
+  .ctl { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 12px 0 4px; }
+  .ctl button { font: inherit; font-size: 0.85rem; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
+  .ctl button:hover:not(:disabled) { text-decoration: underline; }
+  .ctl button:disabled { opacity: 0.55; cursor: default; }
+  .ctl a { color: var(--accent); font-size: 0.85rem; text-decoration: none; }
+  .ctl .muted { font-size: 0.8rem; }
+  .ctl .err { color: var(--bad); font-size: 0.8rem; }
 </style>
 </head>
 <body>
@@ -184,6 +191,9 @@ let names = [];
 let tick = 0;
 let meta = {};
 let logsAvailable = true;   // Dozzle (et son tunnel) en marche : les liens vers les logs sont actifs
+let logsCtl = null;         // dernier état du service logs-control (null : indisponible)
+let logsBusy = '';          // action en cours : '' | 'on' | 'off'
+let logsMsg = '';           // message d'erreur éventuel
 let openApps = new Set();
 try { openApps = new Set(JSON.parse(localStorage.getItem('openApps') || '[]')); } catch (e) {}
 
@@ -194,8 +204,8 @@ const APPS = [
   { id: 'web2', category: 'main', name: 'Web2', url: 'https://web2.maximelabatut.com', members: ['web2', 'cloudflared-web2'] },
   { id: 'dashboard', category: 'tech', name: 'Dashboard', url: 'https://config.maximelabatut.com', members: ['dashboard', 'dashboard-sync', 'cloudflared-config'] },
   { id: 'netdata', category: 'tech', name: 'Netdata', url: 'https://netdata.maximelabatut.com', members: ['netdata', 'cloudflared-netdata'] },
-  { id: 'dozzle', category: 'tech', name: 'Logs (Dozzle)', url: 'https://logs.maximelabatut.com', members: ['dozzle', 'cloudflared-logs'], onDemand: true,
-    note: 'Service à la demande : il n\'est démarré que pour lire des logs (cf. la documentation). Arrêté, ce tiroir est neutre et les liens vers les logs sont désactivés.' },
+  { id: 'dozzle', category: 'tech', name: 'Logs (Dozzle)', url: 'https://logs.maximelabatut.com', members: ['dozzle', 'cloudflared-logs', 'logs-control'], onDemand: true, demandMembers: ['dozzle', 'cloudflared-logs'], control: 'logs',
+    note: 'Service à la demande : démarré avec le bouton ci-dessous pour lire des logs, arrêté automatiquement ensuite. Arrêté, ce tiroir est neutre et les liens vers les logs sont désactivés.' },
   { id: 'homewatch', category: 'main', name: 'Homewatch', url: 'https://homewatch.maximelabatut.com', members: ['homewatch', 'cloudflared-homewatch'] },
   { id: 'uptime', category: 'tech', name: 'Uptime Kuma', url: 'https://uptime.maximelabatut.com', members: ['uptime-kuma', 'cloudflared-uptime'] }
 ];
@@ -215,6 +225,7 @@ const DESCRIPTIONS = {
   'netdata': 'Collecte les métriques du Pi : température, CPU, RAM, disque, réseau, conteneurs',
   'dozzle': 'Visionneuse de logs en direct de tous les conteneurs (lecture seule, à la demande)',
   'cloudflared-logs': 'Publie Dozzle (logs.maximelabatut.com, à la demande)',
+  'logs-control': 'Démarre et arrête Dozzle et son tunnel (bouton de ce tiroir) ; arrêt automatique après la durée prévue',
   'homewatch': 'Application privée (derrière Cloudflare Access + MFA)',
   'cloudflared-homewatch': 'Publie l\'application privée',
   'uptime-kuma': 'Surveille les sites toutes les minutes et envoie une alerte sur le téléphone (ntfy) en cas de panne',
@@ -223,7 +234,7 @@ const DESCRIPTIONS = {
 
 function kindOf(name) {
   if (name.startsWith('cloudflared-')) return ['Tunnel', 'tunnel'];
-  if (name === 'dashboard-sync' || name === 'www-status') return ['Service', ''];
+  if (name === 'dashboard-sync' || name === 'www-status' || name === 'logs-control') return ['Service', ''];
   return ['Application', ''];
 }
 
@@ -340,6 +351,61 @@ function stateOf(o) {
   return best;
 }
 
+async function fetchLogsCtl() {
+  try {
+    const r = await fetch('/logs-control/state', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    logsCtl = await r.json();
+  } catch (e) { logsCtl = null; }
+  return logsCtl;
+}
+
+function fmtLeft(sec) {
+  const m = Math.max(1, Math.round(sec / 60));
+  return m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') : m + ' min';
+}
+
+function logsControlHtml() {
+  const err = logsMsg ? '<span class="err">' + logsMsg + '</span>' : '';
+  if (logsBusy) {
+    return '<div class="ctl"><button disabled>' + (logsBusy === 'on' ? 'Démarrage…' : 'Arrêt…') + '</button>' +
+      '<span class="muted">quelques secondes (le tunnel peut mettre ~10 s à répondre)</span></div>';
+  }
+  if (!logsCtl) return '<div class="ctl"><span class="muted">Contrôle indisponible (service logs-control arrêté ?).</span>' + err + '</div>';
+  if (logsCtl.missing) {
+    return '<div class="ctl"><span class="muted">Les conteneurs Dozzle n\'existent pas encore : les créer avec ' +
+      '<code>docker compose --profile logs up --no-start dozzle cloudflared-logs</code>.</span></div>';
+  }
+  if (logsCtl.up) {
+    const left = logsCtl.remaining_s === null ? '' : 'arrêt automatique dans ' + fmtLeft(logsCtl.remaining_s);
+    return '<div class="ctl"><button data-logs="off">Arrêter Dozzle</button>' +
+      '<a href="https://logs.maximelabatut.com" target="_blank" rel="noopener">Ouvrir les logs ↗</a>' +
+      '<span class="muted">' + left + '</span>' + err + '</div>';
+  }
+  const hours = Math.round((logsCtl.max_minutes || 120) / 60);
+  return '<div class="ctl"><button data-logs="on">Démarrer Dozzle</button>' +
+    '<span class="muted">Arrêté (à la demande). Prêt en ~15 s, arrêt automatique après ' + hours + ' h.</span>' + err + '</div>';
+}
+
+document.addEventListener('click', async e => {
+  const b = e.target && e.target.closest ? e.target.closest('button[data-logs]') : null;
+  if (!b || logsBusy) return;
+  const action = b.getAttribute('data-logs');
+  logsBusy = action; logsMsg = '';
+  updateContainers().catch(() => {});
+  try {
+    const r = await fetch('/logs-control/' + action, { method: 'POST', headers: { 'X-Logs-Control': '1' } });
+    if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || 'HTTP ' + r.status); }
+    for (let i = 0; i < 20; i++) {              // attend l'état voulu, 40 s au maximum
+      const st = await fetchLogsCtl();
+      if (st && (action === 'on' ? st.up : !Object.values(st.services).some(v => v === 'running'))) break;
+      await new Promise(res => setTimeout(res, 2000));
+    }
+  } catch (err) { logsMsg = 'Échec : ' + err.message; }
+  logsBusy = '';
+  await updateContainers().catch(() => {});
+});
+
 function rowHtml(r, onDemand) {
   const stopped = r.state === 'exited' || r.state === 'dead';
   const cls = r.state === 'running' ? 'running' : (onDemand && stopped) ? 'idle' : stopped ? 'exited' : 'other';
@@ -357,7 +423,8 @@ function rowHtml(r, onDemand) {
 function groupHtml(g) {
   const total = g.rows.length;
   const up = g.rows.filter(r => r.state === 'running').length;
-  const idle = g.onDemand && up === 0;
+  const demand = g.demandMembers ? g.rows.filter(r => g.demandMembers.includes(r.name)) : g.rows;
+  const idle = g.onDemand && demand.every(r => r.state !== 'running');
   const cls = idle ? 'idle' : total && up === total ? 'ok' : up === 0 ? 'bad' : 'warn';
   const host = g.url ? g.url.replace('https://', '') : '';
   const access = g.url
@@ -372,13 +439,14 @@ function groupHtml(g) {
     '<summary><span class="dot ' + cls + '"></span><span class="app-name">' + g.name + '</span>' +
     '<span class="app-url">' + link + '</span><span class="app-cpu" title="Somme du CPU des conteneurs du tiroir">CPU ' + cpuSum.toFixed(1) + ' %</span>' +
     '<span class="app-count ' + cls + '">' + (idle ? 'à la demande' : up + '/' + total + ' en ligne') + '</span></summary>' +
-    '<div class="app-body">' + access + note +
+    '<div class="app-body">' + access + note + (g.control === 'logs' ? logsControlHtml() : '') +
     '<div class="scroll"><table><thead><tr><th></th><th>Conteneur</th><th>Rôle</th><th>État</th><th>CPU</th></tr></thead><tbody>' +
-    g.rows.map(r => rowHtml(r, g.onDemand)).join('') + '</tbody></table></div></div></details>';
+    g.rows.map(r => rowHtml(r, g.onDemand && (!g.demandMembers || g.demandMembers.includes(r.name)))).join('') + '</tbody></table></div></div></details>';
 }
 
 async function updateContainers() {
   if (!names.length) await loadNames();
+  await fetchLogsCtl();
   await loadMeta().catch(() => {});
   const rows = await Promise.all(names.map(async name => {
     const [st, cpu] = await Promise.allSettled([
@@ -393,7 +461,7 @@ async function updateContainers() {
   }));
   const byName = {};
   rows.forEach(r => { byName[r.name] = r; });
-  logsAvailable = ['dozzle', 'cloudflared-logs'].every(n => byName[n] && byName[n].state === 'running');
+  logsAvailable = logsCtl ? logsCtl.up : ['dozzle', 'cloudflared-logs'].every(n => byName[n] && byName[n].state === 'running');
   const used = new Set();
   const groups = APPS.map(a => {
     a.members.forEach(n => used.add(n));

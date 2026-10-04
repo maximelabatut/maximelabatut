@@ -275,6 +275,9 @@ bash ~/docker/pi/logs.sh status
 - Le dashboard affiche alors le tiroir « Logs (Dozzle) » en gris (« à la demande ») et désactive les liens vers les logs.
 - **`docker compose up -d` (et donc une restauration) ne démarre pas Dozzle**, et peut l'arrêter s'il tourne. Après un redéploiement : `pi/logs.sh on` si besoin. Pour tout démarrer d'un coup : `docker compose --profile logs up -d`.
 - Un conteneur arrêté à la main reste arrêté après un redémarrage du Pi (`restart: unless-stopped`).
+- **Bouton dans le dashboard** : le tiroir « Logs (Dozzle) » propose « Démarrer / Arrêter Dozzle ». **Arrêt automatique 2 h après le démarrage**, quel que soit le moyen de démarrage.
+- Un petit service dédié (`logs-control`, Python standard) est le seul à pouvoir agir, et **uniquement sur ces deux conteneurs** (noms fixés dans le code, aucune valeur de requête dans les appels Docker). Il est durci (utilisateur non root, système de fichiers en lecture seule, aucune capacité Linux) et protégé contre les requêtes forgées (en-tête de contrôle obligatoire, une écriture toutes les 2 s). Tests : `python3 dashboard/logs-control/test_control.py` (faux démon Docker).
+- Les conteneurs doivent exister pour que le bouton marche : `restore.sh` les crée sans les démarrer (`docker compose --profile logs up --no-start dozzle cloudflared-logs`).
 - Cloudflare Access répond toujours par sa redirection, même Dozzle arrêté : le contrôle d'exposition reste valable.
 
 ### Optimisations du 4 octobre 2026
@@ -287,7 +290,7 @@ Analyse faite avec les données de Netdata (historique ~20 h) et de Dozzle/`dock
 | `dashboard-sync` piloté par les événements Docker | `docker ps -a` toutes les 10 s (8 640 appels/jour) | un appel par changement de conteneur |
 | `www-status` | un test toutes les 30 s | un test toutes les 60 s |
 | Rotation des logs Docker (`x-logging` du compose : 3 × 10 Mo par conteneur) et logs d'accès du dashboard coupés (`access_log off`) | aucune rotation ; ~3 Mo/jour de logs d'accès inutiles pour le dashboard | taille des logs bornée |
-| Dozzle à la demande | toujours en marche (~85 Mo avec son tunnel) | arrêté sauf lecture de logs (`pi/logs.sh on / off`) |
+| Dozzle à la demande | toujours en marche (~85 Mo avec son tunnel) | arrêté sauf lecture de logs (bouton du dashboard ou `pi/logs.sh on / off`, arrêt automatique après 2 h) |
 | Nettoyage Docker | 633 Mo de cache de build + 2 images inutilisées | 0 ; disque 26 % → 25 % |
 
 À savoir :
