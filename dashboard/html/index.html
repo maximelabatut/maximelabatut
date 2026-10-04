@@ -99,6 +99,7 @@
   .dot.ok { background: var(--ok); }
   .dot.warn { background: var(--warn); }
   .dot.bad { background: var(--bad); }
+  .dot.idle { background: var(--muted); }
   .app-name { font-weight: 600; flex: 1; min-width: 0; }
   .app-url { flex-shrink: 0; text-align: right; white-space: nowrap; }
   .app-url a { color: var(--accent); font-size: 0.8rem; text-decoration: none; }
@@ -109,6 +110,7 @@
   .app-count.ok { color: var(--ok); }
   .app-count.warn { color: var(--warn); }
   .app-count.bad { color: var(--bad); }
+  .app-count.idle { color: var(--muted); }
   .app-body { padding: 4px 18px 16px; border-top: 1px solid var(--border); }
   .access { margin: 12px 0 4px; }
   .access a { color: var(--accent); text-decoration: none; }
@@ -129,6 +131,7 @@
   .badge.running { color: var(--ok); border-color: var(--ok); }
   .badge.exited, .badge.dead { color: var(--bad); border-color: var(--bad); }
   .badge.other { color: var(--warn); border-color: var(--warn); }
+  .badge.idle { color: var(--muted); border-color: var(--border); }
 </style>
 </head>
 <body>
@@ -180,6 +183,7 @@ const DOZZLE = 'https://logs.maximelabatut.com/container/';
 let names = [];
 let tick = 0;
 let meta = {};
+let logsAvailable = true;   // Dozzle (et son tunnel) en marche : les liens vers les logs sont actifs
 let openApps = new Set();
 try { openApps = new Set(JSON.parse(localStorage.getItem('openApps') || '[]')); } catch (e) {}
 
@@ -190,7 +194,8 @@ const APPS = [
   { id: 'web2', category: 'main', name: 'Web2', url: 'https://web2.maximelabatut.com', members: ['web2', 'cloudflared-web2'] },
   { id: 'dashboard', category: 'tech', name: 'Dashboard', url: 'https://config.maximelabatut.com', members: ['dashboard', 'dashboard-sync', 'cloudflared-config'] },
   { id: 'netdata', category: 'tech', name: 'Netdata', url: 'https://netdata.maximelabatut.com', members: ['netdata', 'cloudflared-netdata'] },
-  { id: 'dozzle', category: 'tech', name: 'Logs (Dozzle)', url: 'https://logs.maximelabatut.com', members: ['dozzle', 'cloudflared-logs'] },
+  { id: 'dozzle', category: 'tech', name: 'Logs (Dozzle)', url: 'https://logs.maximelabatut.com', members: ['dozzle', 'cloudflared-logs'], onDemand: true,
+    note: 'Service à la demande : il n\'est démarré que pour lire des logs (cf. la documentation). Arrêté, ce tiroir est neutre et les liens vers les logs sont désactivés.' },
   { id: 'homewatch', category: 'main', name: 'Homewatch', url: 'https://homewatch.maximelabatut.com', members: ['homewatch', 'cloudflared-homewatch'] },
   { id: 'uptime', category: 'tech', name: 'Uptime Kuma', url: 'https://uptime.maximelabatut.com', members: ['uptime-kuma', 'cloudflared-uptime'] }
 ];
@@ -208,8 +213,8 @@ const DESCRIPTIONS = {
   'cloudflared-config': 'Publie le dashboard (config.maximelabatut.com)',
   'cloudflared-netdata': 'Publie Netdata (netdata.maximelabatut.com)',
   'netdata': 'Collecte les métriques du Pi : température, CPU, RAM, disque, réseau, conteneurs',
-  'dozzle': 'Visionneuse de logs en direct de tous les conteneurs (lecture seule)',
-  'cloudflared-logs': 'Publie Dozzle (logs.maximelabatut.com)',
+  'dozzle': 'Visionneuse de logs en direct de tous les conteneurs (lecture seule, à la demande)',
+  'cloudflared-logs': 'Publie Dozzle (logs.maximelabatut.com, à la demande)',
   'homewatch': 'Application privée (derrière Cloudflare Access + MFA)',
   'cloudflared-homewatch': 'Publie l\'application privée',
   'uptime-kuma': 'Surveille les sites toutes les minutes et envoie une alerte sur le téléphone (ntfy) en cas de panne',
@@ -335,13 +340,14 @@ function stateOf(o) {
   return best;
 }
 
-function rowHtml(r) {
-  const cls = r.state === 'running' ? 'running' : (r.state === 'exited' || r.state === 'dead') ? 'exited' : 'other';
+function rowHtml(r, onDemand) {
+  const stopped = r.state === 'exited' || r.state === 'dead';
+  const cls = r.state === 'running' ? 'running' : (onDemand && stopped) ? 'idle' : stopped ? 'exited' : 'other';
   const cpu = r.cpu === null ? '—' : r.cpu.toFixed(1) + ' %';
   const m = meta[r.name];
-  const label = m && m.id
+  const label = m && m.id && logsAvailable
     ? '<a class="log" href="' + DOZZLE + m.id + '" target="_blank" rel="noopener" title="Voir les logs dans Dozzle">' + r.name + '</a>'
-    : r.name;
+    : (m && m.id ? '<span title="Dozzle est arrêté (service à la demande) : liens vers les logs désactivés">' + r.name + '</span>' : r.name);
   const desc = DESCRIPTIONS[r.name] || (m ? 'Image : ' + m.image : '');
   const [kindLabel, kindCls] = kindOf(r.name);
   return '<tr><td><span class="kind ' + kindCls + '">' + kindLabel + '</span></td><td>' + label + '</td><td class="desc">' + desc +
@@ -351,7 +357,8 @@ function rowHtml(r) {
 function groupHtml(g) {
   const total = g.rows.length;
   const up = g.rows.filter(r => r.state === 'running').length;
-  const cls = total && up === total ? 'ok' : up === 0 ? 'bad' : 'warn';
+  const idle = g.onDemand && up === 0;
+  const cls = idle ? 'idle' : total && up === total ? 'ok' : up === 0 ? 'bad' : 'warn';
   const host = g.url ? g.url.replace('https://', '') : '';
   const access = g.url
     ? '<p class="muted access">Accès : <a href="' + g.url + '" target="_blank" rel="noopener">' + host + ' ↗</a></p>'
@@ -364,10 +371,10 @@ function groupHtml(g) {
   return '<details class="app" data-id="' + g.id + '"' + (openApps.has(g.id) ? ' open' : '') + '>' +
     '<summary><span class="dot ' + cls + '"></span><span class="app-name">' + g.name + '</span>' +
     '<span class="app-url">' + link + '</span><span class="app-cpu" title="Somme du CPU des conteneurs du tiroir">CPU ' + cpuSum.toFixed(1) + ' %</span>' +
-    '<span class="app-count ' + cls + '">' + up + '/' + total + ' en ligne</span></summary>' +
+    '<span class="app-count ' + cls + '">' + (idle ? 'à la demande' : up + '/' + total + ' en ligne') + '</span></summary>' +
     '<div class="app-body">' + access + note +
     '<div class="scroll"><table><thead><tr><th></th><th>Conteneur</th><th>Rôle</th><th>État</th><th>CPU</th></tr></thead><tbody>' +
-    g.rows.map(rowHtml).join('') + '</tbody></table></div></div></details>';
+    g.rows.map(r => rowHtml(r, g.onDemand)).join('') + '</tbody></table></div></div></details>';
 }
 
 async function updateContainers() {
@@ -386,6 +393,7 @@ async function updateContainers() {
   }));
   const byName = {};
   rows.forEach(r => { byName[r.name] = r; });
+  logsAvailable = ['dozzle', 'cloudflared-logs'].every(n => byName[n] && byName[n].state === 'running');
   const used = new Set();
   const groups = APPS.map(a => {
     a.members.forEach(n => used.add(n));
