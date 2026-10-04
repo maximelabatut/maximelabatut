@@ -14,5 +14,5 @@ while true; do
     "$(chk http://gamevault:8787/)" \
     "$(chk https://web2.maximelabatut.com/)" \
     > /data/status.json.tmp && mv /data/status.json.tmp /data/status.json
-  sleep 30
+  sleep 60   # un test toutes les 60 s (30 s avant) : le statut public reste frais (la page l'estime périmé au-delà de 3 min)
 done

@@ -1,7 +1,16 @@
+# Rotation des logs des conteneurs (sans elle, le pilote json-file grossit indéfiniment sur la carte SD) :
+# 3 fichiers de 10 Mo maximum par conteneur.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   www:
     image: nginx
     container_name: www
+    logging: *default-logging
     restart: unless-stopped
     ports:
       - "8080:80"
@@ -11,6 +20,7 @@ services:
   www-status:
     image: curlimages/curl:latest
     container_name: www-status
+    logging: *default-logging
     restart: unless-stopped
     user: root
     entrypoint: ["/bin/sh", "/status.sh"]
@@ -21,6 +31,7 @@ services:
   gamevault:
     image: python:3.12-slim
     container_name: gamevault
+    logging: *default-logging
     restart: unless-stopped
     working_dir: /app
     command: python rss_proxy_server.py
@@ -36,6 +47,7 @@ services:
   web2:
     image: nginx
     container_name: web2
+    logging: *default-logging
     restart: unless-stopped
     ports:
       - "8082:80"
@@ -45,6 +57,7 @@ services:
   dashboard:
     image: nginx
     container_name: dashboard
+    logging: *default-logging
     restart: unless-stopped
     network_mode: host
     volumes:
@@ -55,6 +68,7 @@ services:
   dashboard-sync:
     image: docker:cli
     container_name: dashboard-sync
+    logging: *default-logging
     restart: unless-stopped
     entrypoint: ["/bin/sh", "/sync.sh"]
     volumes:
@@ -65,6 +79,7 @@ services:
   netdata:
     image: netdata/netdata:stable
     container_name: netdata
+    logging: *default-logging
     restart: unless-stopped
     network_mode: host
     pid: host
@@ -94,6 +109,7 @@ services:
   dozzle:
     image: amir20/dozzle:latest
     container_name: dozzle
+    logging: *default-logging
     restart: unless-stopped
     ports:
       - "127.0.0.1:8084:8080"
@@ -103,6 +119,7 @@ services:
   uptime-kuma:
     image: louislam/uptime-kuma:2
     container_name: uptime-kuma
+    logging: *default-logging
     restart: unless-stopped
     ports:
       - "127.0.0.1:8085:3001"
@@ -115,6 +132,7 @@ services:
     build: ./homewatch/app
     image: homewatch:local
     container_name: homewatch
+    logging: *default-logging
     restart: unless-stopped
     user: "1000:1000"
     read_only: true
@@ -134,6 +152,7 @@ services:
   cloudflared-www:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-www
+    logging: *default-logging
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_WWW}
@@ -141,6 +160,7 @@ services:
   cloudflared-gamevault:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-gamevault
+    logging: *default-logging
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_GAMEVAULT}
@@ -148,6 +168,7 @@ services:
   cloudflared-web2:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-web2
+    logging: *default-logging
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_WEB2}
@@ -155,6 +176,7 @@ services:
   cloudflared-config:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-config
+    logging: *default-logging
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_CONFIG}
@@ -162,6 +184,7 @@ services:
   cloudflared-logs:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-logs
+    logging: *default-logging
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_LOGS}
@@ -169,6 +192,7 @@ services:
   cloudflared-netdata:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-netdata
+    logging: *default-logging
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_NETDATA}
@@ -176,6 +200,7 @@ services:
   cloudflared-uptime:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-uptime
+    logging: *default-logging
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_UPTIME}
@@ -183,6 +208,7 @@ services:
   cloudflared-homewatch:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-homewatch
+    logging: *default-logging
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_HOMEWATCH}

@@ -183,7 +183,7 @@ Un conteneur qui apparaît dans « Autres conteneurs » avec « Image : ... » �
 
 - **En-tête** : point de statut (vert si tout est en ligne, orange en partie, rouge si rien), nom, lien vers l'application (à droite, cliquable sans déplier), somme du CPU des conteneurs du tiroir, compteur « n/n en ligne ». Les colonnes CPU et « en ligne » ont une largeur fixe pour rester alignées d'un tiroir à l'autre ; sur écran étroit (< 700 px) le lien de l'en-tête est masqué (il reste dans le tiroir déplié).
 - **Tiroir déplié** : lien d'accès, puis une ligne par conteneur (type Application / Tunnel / Service, nom cliquable vers ses logs dans Dozzle, rôle, état, CPU). L'état ouvert/fermé est mémorisé dans le navigateur (`localStorage`) et survit au rafraîchissement automatique (5 s).
-- **Liens vers Dozzle** : Dozzle n'accepte que l'ID court du conteneur dans l'URL (`/container/<id>`), qui change à chaque recréation. Le conteneur `dashboard-sync` (image `docker:cli`, script `dashboard/sync.sh`) écrit toutes les 10 s `dashboard/data/containers.json` (id, nom, image uniquement, jamais la commande ni l'environnement), servi par nginx sur `/containers.json`.
+- **Liens vers Dozzle** : Dozzle n'accepte que l'ID court du conteneur dans l'URL (`/container/<id>`), qui change à chaque recréation. Le conteneur `dashboard-sync` (image `docker:cli`, script `dashboard/sync.sh`) écrit `dashboard/data/containers.json` **à chaque événement Docker** (création, démarrage, arrêt, destruction, renommage ; ~2 s de délai) et au plus tard toutes les 300 s, au lieu d'interroger Docker toutes les 10 s (id, nom, image uniquement, jamais la commande ni l'environnement), servi par nginx sur `/containers.json`.
 
 ### Ajouter une application au dashboard
 
@@ -238,9 +238,10 @@ Config versionnée dans le repo et montée en lecture seule dans le conteneur `n
 | `netdata/netdata.conf` | `[db] update every = 2` | collecte toutes les 2 s au lieu de 1 s |
 | `netdata/netdata.conf` | `[plugins] apps = no` | désactive `apps.plugin` (~960 graphiques par processus/utilisateur/groupe, le plus gros poste de CPU). La section « Processes / Apps » de l'interface Netdata disparaît ; le dashboard n'en dépend pas |
 | `netdata/netdata.conf` | `[ml] enabled = yes` | détection d'anomalies (machine learning) conservée, son coût diminue avec le nombre de métriques suivies |
+| `netdata/netdata.conf` | `[plugins] scripts.d, otel, netflow, network-viewer, systemd-journal, systemd-units, ioping, perf, charts.d, python.d, tc, statsd = no` | extensions inutilisées désactivées (4 oct. 2026) : 14 → 4 processus, ~345 → ~205 Mo de RAM. **À conserver activées : `proc`, `cgroups`, `diskspace`, `go.d` et `debugfs`** (cette dernière fournit la température du CPU lue par le dashboard) |
 | `netdata/go.d/docker.conf` | job `local`, `update_every: 10`, `collect_container_size: no` | collecteur Docker ralenti (voir ci-dessous). Le nom `local` doit rester : le dashboard lit les graphiques `docker_local.*` |
 
-Après modification d'un de ces fichiers : `docker restart netdata`.
+Après modification d'un de ces fichiers : `docker restart netdata`. Juste après un (re)démarrage, Netdata journalise une rafale d'une trentaine d'avertissements `SPAWN SERVER ... cgroup-network-helper.sh` pendant ~2 s (son assistant réseau échoue une fois par conteneur en réseau `host`, qui n'a pas d'interface propre) : normal, il n'y en a plus ensuite.
 
 **Diagnostic (3 oct. 2026)** : le Pi tournait à ~25 % de CPU (4 cœurs) alors que la somme des conteneurs ne dépassait pas ~8 % d'un cœur. En réalité `dockerd` et `containerd` consommaient chacun ~42 % d'un cœur, en dehors de tout conteneur. Dozzle arrêté n'a rien changé ; Netdata arrêté a fait passer `dockerd` de ~29 % à ~3-6 % : c'est son collecteur Docker (une interrogation de l'API toutes les 2 s) qui sollicitait le démon, d'où le passage à 10 s.
 
@@ -260,6 +261,23 @@ top -b -n 2 -d 60 | awk '$NF=="dockerd" || $NF=="containerd"' | tail -2
 Pour trouver un coupable : comparer avant/après avoir arrêté le conteneur suspect (`docker compose stop <service>`), puis le relancer. Avant de mesurer un réglage Netdata, vérifier qu'il est bien appliqué : le `update_every` des graphiques `docker_local.*` doit valoir 10 dans `http://localhost:<port de Netdata>/api/v1/charts` (une première mesure avait été faite par erreur sur l'ancien état, le conteneur n'ayant pas été recréé). Juste après un redémarrage, Netdata consomme davantage pendant quelques minutes (le ML réentraîne ses modèles) : attendre avant de mesurer. Dans le dashboard, les états de conteneurs sont lus sur une fenêtre de 20 s (`latest(chart, 20)`) pour tolérer cette collecte à 10 s.
 
 Le dashboard met aussi en pause son rafraîchissement quand l'onglet est caché (`document.hidden`) : un aperçu ouvert dans un onglet en arrière-plan ne s'actualise donc pas.
+
+### Optimisations du 4 octobre 2026
+
+Analyse faite avec les données de Netdata (historique ~20 h) et de Dozzle/`docker logs` : le Pi est calme (charge ~0,1, ~46 °C), mais **`dockerd` et `containerd` consomment ensemble plus de CPU (~56 % d'un cœur en moyenne) que les 18 conteneurs réunis (~11 %)**. Mesures et actions :
+
+| Action | Avant | Après |
+|---|---|---|
+| Extensions Netdata inutiles désactivées | 14 processus, 345 Mo ; `scripts.d` journalisait ~1 270 erreurs/jour (dossier inexistant) | 4 processus, ~205 Mo |
+| `dashboard-sync` piloté par les événements Docker | `docker ps -a` toutes les 10 s (8 640 appels/jour) | un appel par changement de conteneur |
+| `www-status` | un test toutes les 30 s | un test toutes les 60 s |
+| Rotation des logs Docker (`x-logging` du compose : 3 × 10 Mo par conteneur) et logs d'accès du dashboard coupés (`access_log off`) | aucune rotation ; ~3 Mo/jour de logs d'accès inutiles pour le dashboard | taille des logs bornée |
+| Nettoyage Docker | 633 Mo de cache de build + 2 images inutilisées | 0 ; disque 26 % → 25 % |
+
+À savoir :
+- **La mémoire par conteneur n'est pas disponible** (cgroups mémoire désactivés) : elle se calcule à partir des processus (`/proc/<pid>/status`, champ `VmRSS`, rattaché au conteneur par `/proc/<pid>/cgroup`).
+- Nettoyage périodique : `docker builder prune -f` (cache de build) et `docker image prune` ; `docker system df` montre ce qui est récupérable.
+- Pistes non appliquées, à ne retenir que si le besoin apparaît : regrouper les 8 `cloudflared` en un seul tunnel (−7 conteneurs, ~265 Mo, ~3 % de cœur, mais perte de l'isolation « un tunnel par application »), démarrer Dozzle à la demande (−47 Mo), activer les cgroups mémoire, passer la collecte Docker de Netdata à 30 s.
 
 ### Température du Pi : valeurs de référence
 
@@ -362,7 +380,7 @@ Vitrine du homelab : `www/html/index.html`, une page statique sans dépendance e
 
 ### Statut en direct
 
-Le conteneur `www-status` (image `curlimages/curl`, script `www/status.sh`, `user: root`) teste toutes les 30 s les **URL publiques** des trois sites (`www`, `gamevault`, `web2`, donc tunnel et Cloudflare compris, un site est « en ligne » s'il répond `200`) et écrit `www/html/data/status.json` :
+Le conteneur `www-status` (image `curlimages/curl`, script `www/status.sh`, `user: root`) teste toutes les 60 s (30 s avant le 4 oct. 2026) les **URL publiques** des trois sites (`www`, `gamevault`, `web2`, donc tunnel et Cloudflare compris, un site est « en ligne » s'il répond `200`) et écrit `www/html/data/status.json` :
 
 ```json
 {"updated":1791057649,"uptime_seconds":25290,"services":{"www":true,"gamevault":true,"web2":true}}
@@ -599,7 +617,7 @@ Les fichiers parasites macOS (`.DS_Store`, `._*`) créés par le Finder sont exc
 | Erreur Cloudflare `1033` sur un sous-domaine dont la route existe bien | Le tunnel a été créé sur le dashboard Cloudflare mais **aucun conteneur `cloudflared-<service>` ne le fait tourner** (service et token absents du compose / `.env`), ou la route a été créée sur un autre tunnel | Ajouter le service `cloudflared-<service>` et `CLOUDFLARE_TUNNEL_TOKEN_<SERVICE>` ; vérifier quelles routes un tunnel connaît avec `docker compose logs cloudflared-<service> \| grep "Updated to new configuration" \| tail -1` (liste des hostnames) |
 | `www` ne démarre pas, `mkdirat ... read-only file system` | Volume monté à l'intérieur d'un dossier déjà monté en lecture seule (ex. `./www/data` dans `/usr/share/nginx/html`) | Placer le dossier dans l'arborescence déjà montée (`www/html/data`) au lieu d'un second montage |
 | « Statut du serveur indisponible pour le moment » sur la page d'accueil | `status.json` absent, périmé (> 3 min) ou non servi : `www-status` arrêté, ou `www` jamais recréé avec le bon montage (404 sur `/data/status.json`) | `docker compose up -d --force-recreate www www-status`, puis `cat www/html/data/status.json` et `curl -s http://localhost:8080/data/status.json` |
-| `"www":false` ponctuel dans `status.json` | Test réalisé pendant le redémarrage de `www` | Transitoire : le cycle suivant (30 s) remet à `true` |
+| `"www":false` ponctuel dans `status.json` | Test réalisé pendant le redémarrage de `www` | Transitoire : le cycle suivant (60 s) remet à `true` |
 | Conteneur affiché dans « Autres conteneurs » avec « Image : ... » | Absent de `APPS` / `DESCRIPTIONS` dans le dashboard | Ajouter le conteneur à un tiroir de `dashboard/html/index.html` |
 | Dozzle « Conteneur non trouvé » depuis un lien du dashboard | Le lien utilise l'ID du conteneur, qui change quand il est recréé ; `containers.json` n'est pas encore à jour, ou `dashboard-sync` est arrêté | Attendre 10 s et recharger ; vérifier `docker compose ps` pour `dashboard-sync` |
 | Noms de conteneurs non cliquables dans le dashboard | `/containers.json` absent (`dashboard-sync` jamais lancé ou dossier `dashboard/data` manquant) | `docker compose up -d`, vérifier que `~/docker/dashboard/data/containers.json` existe |
