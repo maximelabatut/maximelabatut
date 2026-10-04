@@ -72,6 +72,9 @@ if [ -f /tmp/uptime-kuma-data.tgz ]; then
   rm -f /tmp/uptime-kuma-data.tgz
 fi
 
+echo "   Sauvegarde sans mot de passe : script root et règle sudo limitée"
+sudo bash "$HOME/docker/pi/install-backup.sh"
+
 echo "== 4/7 Secrets (.env)"
 cp "$SRC_ENV" "$HOME/docker/.env"
 sed -i '/^DOCKER_GID=/d' "$HOME/docker/.env"

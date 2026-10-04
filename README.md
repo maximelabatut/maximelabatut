@@ -115,7 +115,7 @@ docker compose up -d
 Le `.env` et les données d'Uptime Kuma sont sauvegardés sur le Mac par `mac/sauvegarder-pi.sh` (instantané SQLite cohérent). Si la carte SD est à remplacer : flasher Raspberry Pi OS Lite 64 bits avec Raspberry Pi Imager, puis lancer depuis le Mac une seule commande qui réinstalle tout (système, Docker, configuration, Samba, ventilateur, données d'Uptime Kuma, conteneurs) :
 
 ```bash
-~/Desktop/raspberrypi/restaurer-pi.sh
+~/Backups/raspberrypi/restaurer-pi.sh
 ```
 
 Détails et procédure manuelle : [`docs/restauration-carte-sd.md`](docs/restauration-carte-sd.md).

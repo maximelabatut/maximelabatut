@@ -4,9 +4,9 @@
 set -euo pipefail
 
 HOST="maxime@maxime.local"
-ENV_FILE="${ENV_FILE:-$HOME/Desktop/raspberrypi/.env}"
+ENV_FILE="${ENV_FILE:-$HOME/Backups/raspberrypi/.env}"
 RAW="https://raw.githubusercontent.com/maximelabatut/maximelabatut/main/restore.sh"
-LOCAL_RESTORE="$HOME/Desktop/raspberrypi/restore.sh"
+LOCAL_RESTORE="$HOME/Backups/raspberrypi/restore.sh"
 
 [ -f "$ENV_FILE" ] || { echo "Fichier introuvable : $ENV_FILE"; exit 1; }
 
@@ -32,16 +32,16 @@ echo "Connexion au Pi (saisis le mot de passe de l'utilisateur maxime, une seule
 ssh "${OPTS[@]}" "$HOST" true
 
 scp "${OPTS[@]}" "$ENV_FILE" "$HOST:/tmp/pi.env"
-KUMA_ARCHIVE="${KUMA_ARCHIVE:-$HOME/Desktop/raspberrypi/uptime-kuma-data.tgz}"
+KUMA_ARCHIVE="${KUMA_ARCHIVE:-$HOME/Backups/raspberrypi/uptime-kuma-data.tgz}"
 if [ -f "$KUMA_ARCHIVE" ]; then
   scp "${OPTS[@]}" "$KUMA_ARCHIVE" "$HOST:/tmp/uptime-kuma-data.tgz"
   echo "Données Uptime Kuma envoyées (sondes, notification ntfy, compte)."
 else
   echo "Pas de sauvegarde Uptime Kuma ($KUMA_ARCHIVE) : à reconfigurer à la main."
 fi
-GV_DIR="${GV_DIR:-$HOME/Desktop/raspberrypi/GameVault}"
-GV_KEY="${GV_KEY:-$HOME/Desktop/raspberrypi/gamevault-deploy-key}"
-GV_DATA="${GV_DATA:-$HOME/Desktop/raspberrypi/gamevault-data.tgz}"
+GV_DIR="${GV_DIR:-$HOME/Backups/raspberrypi/GameVault}"
+GV_KEY="${GV_KEY:-$HOME/Backups/raspberrypi/gamevault-deploy-key}"
+GV_DATA="${GV_DATA:-$HOME/Backups/raspberrypi/gamevault-data.tgz}"
 if [ -f "$GV_KEY" ]; then
   scp "${OPTS[@]}" "$GV_KEY" "$HOST:/tmp/gamevault-deploy-key"
   echo "Clé de déploiement envoyée : le code de GameVault sera récupéré depuis le dépôt privé GitHub."

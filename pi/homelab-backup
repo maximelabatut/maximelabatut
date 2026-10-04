@@ -1,0 +1,48 @@
+#!/bin/bash
+# /usr/local/sbin/homelab-backup : exécuté en root par "sudo -n" (règle NOPASSWD limitée à ce script, sans argument).
+# Produit des instantanés cohérents (sqlite3 .backup, journal WAL compris) des bases de données dans
+# /var/backups/homelab/, lisibles par l'utilisateur. Ce fichier est une COPIE root-owned du dépôt
+# (pi/homelab-backup) : le modifier dans le dépôt n'a d'effet qu'après une nouvelle installation
+# (sudo bash ~/docker/pi/install-backup.sh).
+set -euo pipefail
+umask 077
+export PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+USER_NAME="maxime"
+HOME_DIR="/home/$USER_NAME"
+OUT="/var/backups/homelab"
+
+# Refuse de travailler sur un chemin dont un élément est un lien symbolique (l'utilisateur pourrait
+# sinon pointer un lien vers un fichier de root pour s'en faire remettre une copie lisible).
+canon() { [ "$(realpath -e -- "$1" 2>/dev/null)" = "$1" ]; }
+need() { canon "$1" || { echo "homelab-backup : chemin refusé (absent ou lien symbolique) : $1" >&2; exit 1; }; }
+
+install -d -m 755 -o root -g root "$OUT"          # dossier propriété de root : l'utilisateur ne peut ni y créer de lien ni y renommer
+WORK="$(mktemp -d "$OUT/.work.XXXXXX")"
+trap 'rm -rf "$WORK"' EXIT
+
+KUMA="$HOME_DIR/docker/uptime-kuma/data"
+if [ -e "$KUMA/kuma.db" ]; then
+  need "$KUMA/kuma.db"; need "$KUMA/db-config.json"
+  mkdir "$WORK/kuma"
+  sqlite3 "$KUMA/kuma.db" ".backup '$WORK/kuma/kuma.db'"
+  cp -- "$KUMA/db-config.json" "$WORK/kuma/db-config.json"
+  tar czf "$WORK/uptime-kuma-data.tgz" -C "$WORK/kuma" kuma.db db-config.json
+fi
+
+GV="$HOME_DIR/docker/gamevault/data/catalog.db"
+if [ -e "$GV" ]; then
+  need "$GV"
+  mkdir "$WORK/gv"
+  sqlite3 "$GV" ".backup '$WORK/gv/catalog.db'"
+  tar czf "$WORK/gamevault-data.tgz" -C "$WORK/gv" catalog.db
+fi
+
+for f in uptime-kuma-data.tgz gamevault-data.tgz; do
+  if [ -f "$WORK/$f" ]; then
+    chown "$USER_NAME:$USER_NAME" "$WORK/$f"
+    chmod 600 "$WORK/$f"
+    mv -f -- "$WORK/$f" "$OUT/$f"
+    echo "ok : $OUT/$f"
+  fi
+done

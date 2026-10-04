@@ -1,6 +1,6 @@
 # Restauration après changement de carte SD
 
-Tout est sur GitHub (`github.com/maximelabatut/maximelabatut`) sauf le fichier `.env` (tokens Cloudflare), conservé sur le Mac dans `~/Desktop/raspberrypi/.env`. Rien à refaire côté Cloudflare : les tunnels, Access et le MFA ne dépendent pas de la carte.
+Tout est sur GitHub (`github.com/maximelabatut/maximelabatut`) sauf le fichier `.env` (tokens Cloudflare), conservé sur le Mac dans `~/Backups/raspberrypi/.env`. Rien à refaire côté Cloudflare : les tunnels, Access et le MFA ne dépendent pas de la carte.
 
 ## Procédure rapide
 
@@ -17,7 +17,7 @@ Insérer la carte, brancher, attendre ~2 min que le Pi soit sur le WiFi.
 ### 2. Lancer le script (Mac)
 
 ```bash
-~/Desktop/raspberrypi/restaurer-pi.sh
+~/Backups/raspberrypi/restaurer-pi.sh
 ```
 
 Il demande **trois saisies** :
@@ -44,15 +44,14 @@ La carte fraîchement flashée accepte de nouveau les mots de passe. Une fois la
 
 | Quoi | Où | Mise à jour |
 |---|---|---|
-| `.env` (7 tokens) | `~/Desktop/raspberrypi/.env` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (après tout changement de token) |
-| Données d'Uptime Kuma (compte, canal ntfy, sondes) | `~/Desktop/raspberrypi/uptime-kuma-data.tgz` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (après un changement de sondes ou de notification) |
-| Base de GameVault (catalogue, wishlist) | `~/Desktop/raspberrypi/gamevault-data.tgz` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (périodiquement : la base évolue à chaque utilisation) |
+| `.env` (7 tokens) | `~/Backups/raspberrypi/.env` | `~/Backups/raspberrypi/sauvegarder-pi.sh` (automatique chaque nuit, ou à la main) |
+| Données d'Uptime Kuma (compte, canal ntfy, sondes) | `~/Backups/raspberrypi/uptime-kuma-data.tgz` | `~/Backups/raspberrypi/sauvegarder-pi.sh` (après un changement de sondes ou de notification) |
+| Base de GameVault (catalogue, wishlist) | `~/Backups/raspberrypi/gamevault-data.tgz` | `~/Backups/raspberrypi/sauvegarder-pi.sh` (automatique chaque nuit à 03h30 via `planifier-sauvegarde.sh`) |
 | Clé SSH d'accès au Pi (+ phrase secrète) | `~/.ssh/id_ed25519_homelab`, bloc `Host maxime.local` dans `~/.ssh/config`, phrase secrète dans le Trousseau d'accès | copie du fichier et de la phrase dans le gestionnaire de mots de passe (sans elle, SSH est inaccessible : reflasher et restaurer) |
-| Clé de déploiement de GameVault (lecture seule) | `~/Desktop/raspberrypi/gamevault-deploy-key` (+ `.pub`, enregistrée dans les Deploy keys du dépôt privé) | une seule fois ; le code est cloné depuis `github.com/maximelabatut/gamevault` à la restauration |
-| Code de GameVault (repli) | dossier `~/Desktop/raspberrypi/GameVault/` | utilisé seulement si la clé est absente ou si le clone échoue |
-| `sauvegarder-pi.sh` | `~/Desktop/raspberrypi/` (copie du repo : `mac/sauvegarder-pi.sh`) | si modifié dans le repo |
-| `restaurer-pi.sh` | `~/Desktop/raspberrypi/` (copie du repo : `mac/restaurer-pi.sh`) | si modifié dans le repo |
-| `restore.sh` | repo GitHub (le script Mac le télécharge) ; copie locale en secours dans `~/Desktop/raspberrypi/` | si modifié dans le repo |
+| Clé de déploiement de GameVault (lecture seule) | `~/Backups/raspberrypi/gamevault-deploy-key` (+ `.pub`, enregistrée dans les Deploy keys du dépôt privé) | une seule fois ; le code est cloné depuis `github.com/maximelabatut/gamevault` à la restauration |
+| `sauvegarder-pi.sh` | `~/Backups/raspberrypi/` (copie du repo : `mac/sauvegarder-pi.sh`) | si modifié dans le repo |
+| `restaurer-pi.sh` | `~/Backups/raspberrypi/` (copie du repo : `mac/restaurer-pi.sh`) | si modifié dans le repo |
+| `restore.sh` | repo GitHub (le script Mac le télécharge) ; copie locale en secours dans `~/Backups/raspberrypi/` | si modifié dans le repo |
 | Configuration | GitHub, à jour | `git status` et `git log origin/main..HEAD --oneline` sur le Pi doivent être vides |
 
 `sauvegarder-pi.sh` (Pi allumé ; mot de passe du Pi pour SSH puis pour `sudo`) copie le `.env` et des instantanés **cohérents** des bases d'Uptime Kuma et de GameVault (SQLite `.backup`, qui tient compte du journal WAL : une simple copie de `kuma.db` perdrait les écritures récentes), vérifie son intégrité, et conserve la version précédente en `.prev`. Ces fichiers contiennent des secrets (tokens, hash du compte, canal ntfy) : droits `600`, ne jamais les versionner. Garder aussi le mot de passe Samba et le nom du canal ntfy dans le gestionnaire de mots de passe.
@@ -73,11 +72,11 @@ Se reconnecter (`ssh maxime@maxime.local`), puis :
 git clone https://github.com/maximelabatut/maximelabatut.git ~/docker
 mkdir -p ~/docker/www/html/data ~/docker/dashboard/data ~/docker/uptime-kuma/data
 ```
-Données d'Uptime Kuma (si `uptime-kuma-data.tgz` existe sur le Mac) : `scp ~/Desktop/raspberrypi/uptime-kuma-data.tgz maxime@maxime.local:/tmp/` puis, sur le Pi, `tar xzf /tmp/uptime-kuma-data.tgz -C ~/docker/uptime-kuma/data` avant le premier `docker compose up -d`.
+Données d'Uptime Kuma (si `uptime-kuma-data.tgz` existe sur le Mac) : `scp ~/Backups/raspberrypi/uptime-kuma-data.tgz maxime@maxime.local:/tmp/` puis, sur le Pi, `tar xzf /tmp/uptime-kuma-data.tgz -C ~/docker/uptime-kuma/data` avant le premier `docker compose up -d`.
 
 (repo privé : d'abord `sudo apt install -y gh && gh auth login`). Sur le Mac :
 ```bash
-scp ~/Desktop/raspberrypi/.env maxime@maxime.local:~/docker/.env
+scp ~/Backups/raspberrypi/.env maxime@maxime.local:~/docker/.env
 ```
 Sur le Pi (`DOCKER_GID` change à chaque installation) :
 ```bash
@@ -116,7 +115,7 @@ sudo reboot
 
 | Symptôme | Cause / correction |
 |---|---|
-| `restaurer-pi.sh` : `Fichier introuvable : .../.env` | le `.env` n'est pas dans `~/Desktop/raspberrypi/` |
+| `restaurer-pi.sh` : `Fichier introuvable : .../.env` | le `.env` n'est pas dans `~/Backups/raspberrypi/` |
 | `ssh: Could not resolve hostname maxime.local` | le Pi n'est pas encore sur le WiFi (attendre, vérifier les identifiants WiFi saisis dans Imager) |
 | `REMOTE HOST IDENTIFICATION HAS CHANGED` | `ssh-keygen -R maxime.local` (le script le fait déjà) |
 | `Provided Tunnel token is not valid` | `.env` mal formé : relancer le contrôle des longueurs (6 × 184, `DOCKER_GID 3`) |

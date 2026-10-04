@@ -10,7 +10,7 @@ Toute la configuration (`docker-compose.yml`, contenu des sites) est versionnée
 
 ## Restauration après changement de carte SD
 
-La procédure complète (rapide et manuelle) est dans **`restauration-carte-sd.md`** : après avoir flashé la carte avec Raspberry Pi Imager, une seule commande depuis le Mac (`~/Desktop/raspberrypi/restaurer-pi.sh`) envoie le `.env` et lance `restore.sh` (versionné dans le repo) sur le Pi. Ce script réinstalle le système, Docker, clone le repo, recalcule `DOCKER_GID`, configure Samba et le module Argon, puis lance les conteneurs.
+La procédure complète (rapide et manuelle) est dans **`restauration-carte-sd.md`** : après avoir flashé la carte avec Raspberry Pi Imager, une seule commande depuis le Mac (`~/Backups/raspberrypi/restaurer-pi.sh`) envoie le `.env` et lance `restore.sh` (versionné dans le repo) sur le Pi. Ce script réinstalle le système, Docker, clone le repo, recalcule `DOCKER_GID`, configure Samba et le module Argon, puis lance les conteneurs.
 
 Rappels propres au projet (détails dans cette doc) :
 - Les tunnels Cloudflare, Access et le MFA ne dépendent pas de la carte : rien à refaire côté Cloudflare.
@@ -234,10 +234,10 @@ Un tunnel Cloudflare par sous-domaine (`config`, `netdata`, `logs`, `uptime`), c
 
 **Limites et restauration**
 - Si le **Pi entier** tombe, Uptime Kuma tombe avec lui : aucune alerte ne part. Il faudrait une surveillance externe (heartbeat vers un service qui alerte en l'absence de signal).
-- `uptime-kuma/data/` n'est **pas versionné** (il contient le compte administrateur, le hash de son mot de passe et le canal ntfy) mais il est **sauvegardé sur le Mac** par `sauvegarder-pi.sh` (`~/Desktop/raspberrypi/uptime-kuma-data.tgz`, avec le `.env`) et **restauré automatiquement** par `restaurer-pi.sh` / `restore.sh` avant le premier lancement : après une restauration, le compte, les sondes et la notification ntfy sont déjà en place. Le dossier est créé par `restore.sh` pour qu'il appartienne à `maxime`.
+- `uptime-kuma/data/` n'est **pas versionné** (il contient le compte administrateur, le hash de son mot de passe et le canal ntfy) mais il est **sauvegardé sur le Mac** par `sauvegarder-pi.sh` (`~/Backups/raspberrypi/uptime-kuma-data.tgz`, avec le `.env`) et **restauré automatiquement** par `restaurer-pi.sh` / `restore.sh` avant le premier lancement : après une restauration, le compte, les sondes et la notification ntfy sont déjà en place. Le dossier est créé par `restore.sh` pour qu'il appartienne à `maxime`.
 - **Pourquoi pas un simple `cp` de `kuma.db`** : la base est en mode WAL. Le journal `kuma.db-wal` peut être plus gros que la base elle-même (1,1 Mo contre 380 Ko constatés) et contenir les écritures récentes. La sauvegarde utilise donc `sqlite3 .backup`, qui produit un instantané cohérent même pendant que Uptime Kuma écrit, plus `db-config.json` (sans lui, Uptime Kuma redemande le choix de la base de données). Le script vérifie `PRAGMA integrity_check` et le nombre de sondes avant de remplacer l'ancienne sauvegarde.
-- **`sudo` demande un mot de passe sur ce Pi** (il n'est pas en `NOPASSWD`). Les scripts distants (`sauvegarder-pi.sh`, `restore.sh`) sont donc exécutés avec un terminal (`ssh -t`) pour que `sudo` puisse le demander, et `restore.sh` maintient l'autorisation (`sudo -v` puis boucle `sudo -n true`) pour ne pas le redemander après les mises à jour. Conséquence : ces scripts ne peuvent pas tourner sans surveillance (tâche planifiée) tant que `sudo` n'est pas passwordless ou qu'aucune clé SSH n'est en place.
-- Penser à relancer `sauvegarder-pi.sh` après avoir modifié les sondes ou la notification.
+- **`sudo` demande un mot de passe sur ce Pi** (il n'est pas en `NOPASSWD`). Les scripts distants (`sauvegarder-pi.sh`, `restore.sh`) sont donc exécutés avec un terminal (`ssh -t`) pour que `sudo` puisse le demander, et `restore.sh` maintient l'autorisation (`sudo -v` puis boucle `sudo -n true`) pour ne pas le redemander après les mises à jour. Pour la sauvegarde planifiée, cette contrainte est levée par le script root et la règle `sudo` limitée (cf. « Sauvegarde automatique »). `restore.sh`, lui, garde besoin du mot de passe `sudo` (une saisie).
+- Les sondes et la notification sont sauvegardées chaque nuit (cf. « Sauvegarde automatique ») ; relancer `sauvegarder-pi.sh` seulement pour forcer une sauvegarde immédiate.
 - Les sondes affichent le code HTTP renvoyé : `502` = tunnel joignable mais application arrêtée, `1033`/timeout = tunnel ou Pi injoignable.
 
 ### Consommation CPU de Netdata (réglages et diagnostic)
@@ -294,7 +294,7 @@ Netdata (port 19999, réseau `host`) reste joignable depuis le réseau local : i
 
 ## GameVault (application Python)
 
-Application personnelle : une page HTML (`GameVault.html`), un petit serveur Python (`rss_proxy_server.py`, bibliothèque standard uniquement, port 8787, qui relaie les requêtes du navigateur et gère le catalogue et la wishlist) et une base SQLite (`catalog.db`). Source de référence : le dossier `~/Desktop/raspberrypi/GameVault` du Mac, lancé en local par `run.bat` (Windows).
+Application personnelle : une page HTML (`GameVault.html`), un petit serveur Python (`rss_proxy_server.py`, bibliothèque standard uniquement, port 8787, qui relaie les requêtes du navigateur et gère le catalogue et la wishlist) et une base SQLite (`catalog.db`). Source de référence : le dépôt privé `github.com/maximelabatut/gamevault` (à l'origine un dossier Windows lancé en local par `run.bat`, depuis supprimé du Mac : tout est dans le dépôt, sur le Pi et dans la sauvegarde de la base).
 
 ### Hébergement sur le Pi
 
@@ -319,16 +319,10 @@ Le service `gamevault` du `docker-compose.yml` utilise `python:3.12-slim`, lance
 
 1. Cloudflare Access : ajouter `gamevault.maximelabatut.com` aux destinations de l'application.
 2. Sur le Pi, le dossier `gamevault` appartenait à `root` (créé autrefois par Docker) : `sudo chown -R maxime:maxime ~/docker/gamevault`, puis `git pull`.
-3. Depuis le Mac, copier le code et la base (via le partage `/Volumes/docker`) :
-```bash
-mkdir -p /Volumes/docker/gamevault/app /Volumes/docker/gamevault/data
-cd ~/Desktop/raspberrypi/GameVault
-cp GameVault.html rss_proxy_server.py logo.png logo.ico /Volumes/docker/gamevault/app/
-cp catalog.db /Volumes/docker/gamevault/data/catalog.db
-```
+3. Installer le code (clone du dépôt privé avec la clé de déploiement, cf. plus bas) dans `~/docker/gamevault/app`, et déposer la base de départ (`catalog.db`) dans `~/docker/gamevault/data/`. Pour une restauration, `restore.sh` fait les deux.
 4. Sur le Pi : `docker compose up -d gamevault www-status`, puis `docker compose logs gamevault | tail`.
 5. Uptime Kuma : modifier la sonde GameVault et mettre l'URL `http://gamevault:8787/` (voir ci-dessous).
-6. Relancer `~/Desktop/raspberrypi/sauvegarder-pi.sh` pour produire `gamevault-data.tgz`.
+6. Relancer `~/Backups/raspberrypi/sauvegarder-pi.sh` pour produire `gamevault-data.tgz`.
 
 ### Mettre à jour le code
 
@@ -342,7 +336,7 @@ cd ~/docker && docker compose restart gamevault
 
 Le dépôt étant privé, le Pi s'y authentifie avec une **clé de déploiement** : une clé SSH dédiée à ce seul dépôt, en **lecture seule**, qui n'expire pas.
 
-- **Création (Mac)** : `ssh-keygen -t ed25519 -N "" -C "gamevault-deploy@homelab" -f ~/Desktop/raspberrypi/gamevault-deploy-key` (la partie privée reste sur le Mac, en `600`, avec le `.env` et les archives ; **ne jamais la versionner**).
+- **Création (Mac)** : `ssh-keygen -t ed25519 -N "" -C "gamevault-deploy@homelab" -f ~/Backups/raspberrypi/gamevault-deploy-key` (la partie privée reste sur le Mac, en `600`, avec le `.env` et les archives ; **ne jamais la versionner**).
 - **Enregistrement** : GitHub → dépôt `gamevault` → Settings → Deploy keys → Add deploy key, avec le contenu de `gamevault-deploy-key.pub`. ⚠️ **Ne pas cocher « Allow write access »**. Cette option ne peut pas être modifiée ensuite : pour la changer, supprimer la clé et la rajouter.
 - **Sur le Pi** : `~/.ssh/gamevault_deploy` (`600`) et un bloc `Host github-gamevault` dans `~/.ssh/config` (`IdentityFile`, `IdentitiesOnly yes`) ; le dépôt se clone avec `git clone git@github-gamevault:maximelabatut/gamevault.git`. `restore.sh` fait tout cela à la restauration.
 - **Tester qu'elle est bien en lecture seule** : tenter un `git push` vers une **branche jetable** (`git push origin HEAD:refs/heads/_test-lecture-seule`), jamais vers `main`. Le refus attendu : `The key you are authenticating with has been marked as read only`. (Un test sur `main` avec une clé qui s'avérerait inscriptible laisserait un commit dans l'historique : c'est arrivé une fois, nettoyé par push forcé protégé.)
@@ -355,9 +349,43 @@ Le dépôt étant privé, le Pi s'y authentifie avec une **clé de déploiement*
 
 ### Sauvegarde et restauration
 
-- `sauvegarder-pi.sh` prend un instantané cohérent de la base (`sqlite3 .backup`), le vérifie (`PRAGMA integrity_check`, nombre de jeux) et l'enregistre dans `~/Desktop/raspberrypi/gamevault-data.tgz` (environ 5 Mo pour ~2 500 jeux), avec le `.env` et les données d'Uptime Kuma. Version précédente en `.prev`. Le fichier `catalog.db` du dossier `GameVault` du Mac n'est **jamais écrasé** : il reste la copie de départ.
-- `restaurer-pi.sh` envoie la **clé de déploiement** et `gamevault-data.tgz` ; `restore.sh` **clone le dépôt privé** dans `~/docker/gamevault/app` (code toujours à jour) et restaure la base dans `~/docker/gamevault/data`, avant le premier lancement. L'export ne transporte donc que la **base**, plus de code. Repli : si la clé est absente ou si le clone échoue, le code du dossier `GameVault` du Mac est envoyé à la place.
-- Le code est versionné dans le dépôt **privé** `github.com/maximelabatut/gamevault` (2 commits : la version d'origine, puis les adaptations Docker ; sans `catalog.db`, `run.bat` ni `.claude`) et c'est **lui la source de vérité** du code. Ce dépôt doit rester **privé**. Le dossier `GameVault` du Mac ne sert plus que de repli de restauration et de copie de départ de `catalog.db`.
+- `sauvegarder-pi.sh` prend un instantané cohérent de la base (`sqlite3 .backup`), le vérifie (`PRAGMA integrity_check`, nombre de jeux) et l'enregistre dans `~/Backups/raspberrypi/gamevault-data.tgz` (environ 5 Mo pour ~2 500 jeux), avec le `.env` et les données d'Uptime Kuma. Version précédente en `.prev`. 
+- `restaurer-pi.sh` envoie la **clé de déploiement** et `gamevault-data.tgz` ; `restore.sh` **clone le dépôt privé** dans `~/docker/gamevault/app` (code toujours à jour) et restaure la base dans `~/docker/gamevault/data`, avant le premier lancement. L'export ne transporte donc que la **base**, plus de code. Repli (rarement utile) : si la clé est absente, `restaurer-pi.sh` envoie le code d'un dossier `~/Backups/raspberrypi/GameVault` s'il en existe un.
+- Le code est versionné dans le dépôt **privé** `github.com/maximelabatut/gamevault` (2 commits : la version d'origine, puis les adaptations Docker ; sans `catalog.db`, `run.bat` ni `.claude`) et c'est **lui la source de vérité** du code. Ce dépôt doit rester **privé**. Le dossier `GameVault` qui existait sur le Mac a été supprimé : plus aucune copie locale n'est nécessaire.
+
+---
+
+## Sauvegarde automatique (sans mot de passe)
+
+La sauvegarde du Pi vers le Mac tourne toute seule chaque nuit. Elle ne demande plus aucun mot de passe : connexion SSH par clé (cf. « Durcissement SSH ») et script root à usage unique côté Pi.
+
+| Où | Quoi |
+|---|---|
+| Pi | `/usr/local/sbin/homelab-backup` (root, `755`) : copie cohérente (`sqlite3 .backup`) des bases d'Uptime Kuma et de GameVault dans `/var/backups/homelab/` (dossier root, archives en `600` pour `maxime`) |
+| Pi | `/etc/sudoers.d/homelab-backup` : `maxime ALL=(root) NOPASSWD: /usr/local/sbin/homelab-backup ""` (ce script seul, **sans argument**) |
+| Dépôt | `pi/homelab-backup`, `pi/install-backup.sh` (copie le script en root et valide la règle avec `visudo -cf` **avant** de l'installer : une erreur dans `sudoers` peut bloquer `sudo`) |
+| Mac | `~/Backups/raspberrypi/sauvegarder-pi.sh` (`--auto` pour le mode planifié), `planifier-sauvegarde.sh` (tâche `launchd` `fr.maximelabatut.homelab-backup`, tous les jours à 03h30) |
+
+**Installation sur le Pi** (une fois ; `restore.sh` le refait sur une carte neuve) :
+```bash
+cd ~/docker && sudo bash pi/install-backup.sh
+```
+**Planification sur le Mac** :
+```bash
+~/Backups/raspberrypi/planifier-sauvegarde.sh install
+~/Backups/raspberrypi/planifier-sauvegarde.sh run
+~/Backups/raspberrypi/planifier-sauvegarde.sh status
+```
+
+**Ce que fait une exécution** : connexion par clé, `sudo -n homelab-backup`, téléchargement du `.env` et des archives, **vérification** (`PRAGMA integrity_check`, nombre de sondes et de jeux, présence de tokens valides) puis seulement remplacement des fichiers. Si une vérification échoue, rien n'est remplacé. Les 14 versions précédentes des archives sont gardées dans `historique/`, l'ancien `.env` dans `.env.prev`. En mode planifié : journal `~/Library/Logs/homelab-backup.log` et notification macOS (« Terminée » avec le résumé, ou « Échec »). Sans le script root, `sauvegarder-pi.sh` lancé à la main retombe sur l'ancienne méthode interactive (mot de passe `sudo`) ; planifié, il échoue plutôt que de bloquer.
+
+**Pourquoi `~/Backups/raspberrypi` et pas le Bureau** : macOS interdit à une tâche `launchd` de lire le Bureau, Documents et Téléchargements (protection de la vie privée), même pour des fichiers créés par la tâche elle-même : mesuré, `Operation not permitted`. Le script planifié, le `.env`, les archives et la clé de déploiement sont donc dans `~/Backups/raspberrypi` (hors de ces dossiers, hors d'une éventuelle synchronisation iCloud du Bureau, droits `700`). `planifier-sauvegarde.sh install` refuse un script situé dans un dossier protégé.
+
+**Limites et sécurité (à connaître)**
+- Le script root refuse tout chemin contenant un lien symbolique (`realpath -e`) : sans cela, un utilisateur pourrait pointer un lien vers un fichier de `root` pour s'en faire remettre une copie lisible. Il écrit dans un dossier propriété de `root` (pas de lien ni de renommage possible depuis `maxime`).
+- **Ce n'est pas une barrière absolue** : `maxime` est dans le groupe `docker`, ce qui équivaut déjà à un accès root (un conteneur peut monter tout le disque). La règle `sudo` limitée sert à supprimer le mot de passe pour l'automatisation sans ouvrir un `sudo` général ; elle ne protège pas contre quelqu'un qui contrôle déjà ce compte.
+- La sauvegarde ne part que si le Mac est allumé, session ouverte (trousseau déverrouillé pour la clé SSH) et sur le même réseau que le Pi. Si le Mac dort à 03h30, elle part au réveil. Une absence prolongée n'est pas signalée (pas d'échec) : vérifier de temps en temps la date des fichiers de `~/Backups/raspberrypi`.
+- `/var/backups/homelab/` garde sur le Pi la dernière copie (quelques Mo), sur la même carte SD : ce n'est pas une sauvegarde, seulement un point de passage.
 
 ---
 
