@@ -103,6 +103,46 @@ sudo systemctl enable docker
 
 ---
 
+## Durcissement SSH (connexion par clé uniquement)
+
+**État (4 oct. 2026)** : le Pi n'accepte plus que la connexion par **clé SSH** (ed25519) ; les mots de passe et la connexion `root` sont désactivés. SSH n'est atteignable que depuis le réseau local (aucun port ouvert sur la box), donc le gain porte sur les appareils du réseau et la réutilisation de mots de passe ; Fail2ban devient inutile (aucun mot de passe à deviner).
+
+| Où | Quoi |
+|---|---|
+| Mac | clé `~/.ssh/id_ed25519_homelab`, protégée par une **phrase secrète aléatoire** générée avec l'Assistant mot de passe du Trousseau d'accès et mémorisée par `ssh-add --apple-use-keychain` |
+| Mac | bloc `Host maxime.local` dans `~/.ssh/config` (`User maxime`, `IdentityFile`, `IdentitiesOnly yes`, `AddKeysToAgent yes`, `UseKeychain yes`) ; ancien fichier en `config.avant-homelab` |
+| Pi | clé publique dans `~/.ssh/authorized_keys` ; réglages dans `/etc/ssh/sshd_config.d/00-hardening.conf` |
+
+Contenu de `00-hardening.conf` :
+```
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+PubkeyAuthentication yes
+AuthenticationMethods publickey
+MaxAuthTries 3
+LoginGraceTime 30
+```
+Le préfixe `00-` est voulu : dans `sshd_config.d`, le **premier** réglage rencontré l'emporte, et un fichier de `cloud-init` peut remettre les mots de passe (`50-cloud-init.conf`).
+
+### Mise en place (sans risque de se verrouiller dehors)
+
+1. Mac : créer la clé (`ssh-keygen -t ed25519 -a 100 -C "mac-maxime-homelab" -f ~/.ssh/id_ed25519_homelab`), phrase secrète collée depuis le Trousseau, puis `ssh-add --apple-use-keychain ~/.ssh/id_ed25519_homelab`.
+2. Ajouter le bloc `Host maxime.local` à `~/.ssh/config`, puis `ssh-copy-id -i ~/.ssh/id_ed25519_homelab.pub maxime@maxime.local` (dernier mot de passe saisi).
+3. **Avant** de couper les mots de passe, vérifier que la clé seule suffit : `ssh -o PreferredAuthentications=publickey -o PasswordAuthentication=no maxime@maxime.local 'echo clé OK'`.
+4. Ouvrir une session sur le Pi et **la laisser ouverte** (porte de secours), y écrire `00-hardening.conf`, valider avec `sudo sshd -t`, relire la configuration **effective** avec `sudo sshd -T | grep -iE '^(passwordauthentication|permitrootlogin|pubkeyauthentication|authenticationmethods)'`, puis `sudo systemctl reload ssh` (reload, pas restart).
+5. Dans un **nouveau** terminal : la connexion par clé doit réussir et `ssh -o PreferredAuthentications=password -o PubkeyAuthentication=no maxime@maxime.local` doit répondre `Permission denied (publickey)`.
+
+**Annuler** (depuis la session restée ouverte) : `sudo rm /etc/ssh/sshd_config.d/00-hardening.conf && sudo systemctl reload ssh`.
+
+### Perte de la clé et restauration
+
+- La clé devient le **seul** moyen d'entrer en SSH. En cas de perte du Mac ou de son trousseau : reflasher la carte et lancer `restaurer-pi.sh` (les données reviennent de la dernière sauvegarde). Pour l'éviter, garder une copie de `~/.ssh/id_ed25519_homelab` et de sa phrase secrète dans le gestionnaire de mots de passe.
+- Une **carte fraîchement flashée** a de nouveau l'authentification par mot de passe : `restaurer-pi.sh` s'y connecte avec le mot de passe (la clé est refusée, SSH retombe sur le mot de passe) ; ensuite **refaire les étapes 2 à 5** ci-dessus pour réappliquer le durcissement (`ssh-keygen -R maxime.local` est déjà fait par le script).
+- Les scripts du Mac n'ont plus besoin du mot de passe SSH : `sauvegarder-pi.sh` ne demande plus que le mot de passe `sudo`.
+
+---
+
 ## Monitoring : dashboard, Netdata, Dozzle et Uptime Kuma
 
 Quatre services complémentaires, tous derrière Cloudflare Access (cf section suivante) :

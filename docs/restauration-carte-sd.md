@@ -36,6 +36,10 @@ Il enchaîne tout seul : envoi du `.env`, des données d'Uptime Kuma, de la clé
 - Finder → `Cmd+K` → `smb://maxime.local/docker`
 - `vcgencmd get_throttled` → `throttled=0x0`
 
+### 4. Réappliquer le durcissement SSH (carte neuve)
+
+La carte fraîchement flashée accepte de nouveau les mots de passe. Une fois la restauration terminée, refaire la procédure « Mise en place » de la section « Durcissement SSH » de `docs/ajouter-un-site.md` (étapes 2 à 5 : `ssh-copy-id`, test par clé, `00-hardening.conf`, contrôle).
+
 ## Prérequis à garder en état
 
 | Quoi | Où | Mise à jour |
@@ -43,6 +47,7 @@ Il enchaîne tout seul : envoi du `.env`, des données d'Uptime Kuma, de la clé
 | `.env` (7 tokens) | `~/Desktop/raspberrypi/.env` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (après tout changement de token) |
 | Données d'Uptime Kuma (compte, canal ntfy, sondes) | `~/Desktop/raspberrypi/uptime-kuma-data.tgz` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (après un changement de sondes ou de notification) |
 | Base de GameVault (catalogue, wishlist) | `~/Desktop/raspberrypi/gamevault-data.tgz` | `~/Desktop/raspberrypi/sauvegarder-pi.sh` (périodiquement : la base évolue à chaque utilisation) |
+| Clé SSH d'accès au Pi (+ phrase secrète) | `~/.ssh/id_ed25519_homelab`, bloc `Host maxime.local` dans `~/.ssh/config`, phrase secrète dans le Trousseau d'accès | copie du fichier et de la phrase dans le gestionnaire de mots de passe (sans elle, SSH est inaccessible : reflasher et restaurer) |
 | Clé de déploiement de GameVault (lecture seule) | `~/Desktop/raspberrypi/gamevault-deploy-key` (+ `.pub`, enregistrée dans les Deploy keys du dépôt privé) | une seule fois ; le code est cloné depuis `github.com/maximelabatut/gamevault` à la restauration |
 | Code de GameVault (repli) | dossier `~/Desktop/raspberrypi/GameVault/` | utilisé seulement si la clé est absente ou si le clone échoue |
 | `sauvegarder-pi.sh` | `~/Desktop/raspberrypi/` (copie du repo : `mac/sauvegarder-pi.sh`) | si modifié dans le repo |
