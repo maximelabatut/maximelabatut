@@ -38,15 +38,18 @@ PY
   mv "$CONF/known_hosts.tmp" "$CONF/known_hosts"; chmod 600 "$CONF/known_hosts"
 fi
 
-echo "== Clé publique de chiffrement (age)"
-if ! head -1 "$CONF/recipient" 2>/dev/null | grep -qE '^age1[a-z0-9]{50,}$'; then
+echo "== Clé publique de chiffrement"
+RE='^(age1[a-z0-9]{50,}|ssh-ed25519 AAAA[A-Za-z0-9+/=]{60,})$'
+if ! head -1 "$CONF/recipient" 2>/dev/null | grep -qE "$RE"; then
   RECIP="${RECIPIENT:-}"
   if [ -z "$RECIP" ]; then
-    [ -t 0 ] || { echo "Clé publique age absente : relancer au terminal (ou RECIPIENT=age1... sudo -E bash $0)"; exit 1; }
-    echo "Colle la clé PUBLIQUE age (ligne « Public key: age1... » affichée par age-keygen sur le Mac)."
+    [ -t 0 ] || { echo "Clé publique absente : relancer au terminal (ou RECIPIENT='ssh-ed25519 AAAA...' sudo -E bash $0)"; exit 1; }
+    echo "Colle la clé PUBLIQUE qui chiffrera les sauvegardes : le contenu de ~/.ssh/id_ed25519_homelab.pub sur le Mac"
+    echo "(ligne « ssh-ed25519 AAAA... »), ou une clé age « age1... »."
     read -r -p "Clé publique : " RECIP
   fi
-  [[ "$RECIP" =~ ^age1[a-z0-9]{50,}$ ]] || { echo "Ce n'est pas une clé publique age (elle commence par age1). Ne jamais coller la clé secrète (AGE-SECRET-KEY-...)."; exit 1; }
+  RECIP="$(echo "$RECIP" | awk '{ if ($1 ~ /^ssh-/) print $1 " " $2; else print $1 }')"   # sans le commentaire (souvent une adresse e-mail)
+  echo "$RECIP" | grep -qE "$RE" || { echo "Ce n'est pas une clé publique valide (ssh-ed25519 AAAA... ou age1...). Ne jamais coller une clé PRIVÉE (AGE-SECRET-KEY-... ou BEGIN OPENSSH PRIVATE KEY)."; exit 1; }
   printf '%s\n' "$RECIP" > "$CONF/recipient"; chmod 600 "$CONF/recipient"
 fi
 

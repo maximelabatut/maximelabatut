@@ -4,7 +4,7 @@ Tout est sur GitHub : le code et la configuration dans `github.com/maximelabatut
 
 **Ce qu'il faut avoir pour restaurer** (et rien d'autre) :
 1. l'accès à ton compte GitHub (pour télécharger l'archive)
-2. la **clé secrète age** (`AGE-SECRET-KEY-...`), dans le gestionnaire de mots de passe : sans elle, les archives sont illisibles pour toujours
+2. la clé SSH **`id_ed25519_homelab`** (fichier) et sa **phrase secrète**, dans le gestionnaire de mots de passe : sans elles, les archives sont illisibles pour toujours (le fichier de clé est lui-même chiffré par la phrase)
 3. le mot de passe de l'utilisateur `maxime` choisi dans Imager (et un poste avec `bash`, `ssh`, `git` et `age` : `brew install age`)
 
 ## Procédure rapide
@@ -31,7 +31,7 @@ git clone https://github.com/maximelabatut/maximelabatut.git ~/homelab-restore
 Il récupère la dernière archive dans le dépôt de sauvegardes (GitHub demande tes identifiants : nom d'utilisateur et un *personal access token*, ou ta session `gh`). **Variante sans identifiants** : télécharger le fichier `homelab-AAAA-MM-JJ.tar.gz.age` depuis la page GitHub du dépôt (compte connecté) et le passer en argument : `~/homelab-restore/mac/restaurer-pi.sh ~/Downloads/homelab-AAAA-MM-JJ.tar.gz.age`.
 
 Il demande **quatre saisies** :
-1. la clé secrète age (sans affichage, jamais écrite sur le disque)
+1. la phrase secrète de la clé `~/.ssh/id_ed25519_homelab` (saisie par `age`, qui ne la reprend pas du Trousseau). Sur un poste neuf : remettre d'abord le fichier de clé depuis le gestionnaire de mots de passe dans `~/.ssh/id_ed25519_homelab` (`chmod 600`), ou indiquer son chemin avec `AGE_KEY_FILE=...`
 2. le mot de passe de l'utilisateur `maxime` du Pi, pour SSH (une seule fois pour toute la session)
 3. ce même mot de passe pour `sudo` (une fois : le script maintient ensuite l'autorisation, car `sudo` l'oublierait après 5 minutes pendant les mises à jour)
 4. le mot de passe Samba à choisir (saisi deux fois, jamais stocké)
@@ -69,11 +69,11 @@ La carte fraîchement flashée accepte de nouveau les mots de passe. Une fois la
 | `uptime-kuma-data.tgz` | compte administrateur, sondes, notification ntfy | Uptime Kuma redemande l'installation (~10 min à refaire à la main) |
 | `gamevault-data.tgz` | la base GameVault (catalogue de jeux, wishlist) | GameVault repart avec une **base vide** : c'est la seule donnée irremplaçable du projet |
 | `gamevault-deploy-key`, `homewatch-deploy-key` | clés de déploiement (lecture seule) qui permettent de cloner les dépôts privés | le conteneur correspondant n'a pas de code et ne démarre pas |
-| `homelab-backup/` | clé publique age, clé d'écriture du dépôt de sauvegardes, URL Uptime Kuma | la sauvegarde quotidienne doit être reconfigurée (`sudo bash ~/docker/pi/install-backup.sh`) |
+| `homelab-backup/` | clé publique de chiffrement, clé d'écriture du dépôt de sauvegardes, URL Uptime Kuma | la sauvegarde quotidienne doit être reconfigurée (`sudo bash ~/docker/pi/install-backup.sh`) |
 | `MANIFEST.txt` | date et résumé, sans secret | rien d'important |
 
 **À garder hors de l'archive (indispensable, à toi de les conserver)** :
-- la **clé secrète age** : dans le gestionnaire de mots de passe, avec une copie hors ligne. Perdue, toutes les sauvegardes sont définitivement illisibles ; volée avec l'accès au dépôt, toutes les sauvegardes sont lisibles
+- la clé SSH **`id_ed25519_homelab`** (fichier chiffré + phrase secrète) : dans le gestionnaire de mots de passe, avec une copie hors ligne. Elle sert à la fois à l'accès SSH et au déchiffrement. Perdue, toutes les sauvegardes sont définitivement illisibles ; volée avec sa phrase et l'accès au dépôt, toutes les sauvegardes sont lisibles
 - l'accès à ton compte GitHub (avec sa double authentification)
 - la clé SSH `~/.ssh/id_ed25519_homelab` et sa phrase secrète (Trousseau d'accès) : pas pour restaurer (une carte neuve accepte le mot de passe), mais pour réappliquer ensuite le durcissement SSH
 - le dépôt `maximelabatut` doit rester **public** : `restore.sh` s'y clone sans identifiants
@@ -84,7 +84,7 @@ La carte fraîchement flashée accepte de nouveau les mots de passe. Une fois la
 
 ## La sauvegarde quotidienne (côté Pi)
 
-`homelab-backup` tourne en root, chaque jour vers 03h30, lancé par un timer systemd (`Persistent=true` : si le Pi était éteint à cette heure, elle part au démarrage suivant). Il prend des instantanés **cohérents** des bases (SQLite `.backup`, qui tient compte du journal WAL : une simple copie de `kuma.db` perdrait les écritures récentes), **vérifie leur intégrité** (et la présence de tokens valides) avant toute chose, fabrique l'archive en mémoire, la **chiffre avec la clé publique age** (le Pi ne peut donc pas la relire), puis l'envoie sur GitHub en réécrivant l'historique (un seul commit, 30 archives : les plus anciennes disparaissent vraiment). Il vérifie ensuite que GitHub a bien reçu le commit, puis lance le contrôle d'exposition (Cloudflare Access).
+`homelab-backup` tourne en root, chaque jour vers 03h30, lancé par un timer systemd (`Persistent=true` : si le Pi était éteint à cette heure, elle part au démarrage suivant). Il prend des instantanés **cohérents** des bases (SQLite `.backup`, qui tient compte du journal WAL : une simple copie de `kuma.db` perdrait les écritures récentes), **vérifie leur intégrité** (et la présence de tokens valides) avant toute chose, fabrique l'archive en mémoire, la **chiffre avec la clé publique de `id_ed25519_homelab`** (le Pi ne peut donc pas la relire), puis l'envoie sur GitHub en réécrivant l'historique (un seul commit, 30 archives : les plus anciennes disparaissent vraiment). Il vérifie ensuite que GitHub a bien reçu le commit, puis lance le contrôle d'exposition (Cloudflare Access).
 
 Suivi :
 ```bash
@@ -96,7 +96,7 @@ Alerte : un moniteur Uptime Kuma de type **Push** (intervalle 25 h) prévient pa
 
 **Tester la restauration sans toucher au Pi** (à refaire de temps en temps) : télécharger la dernière archive depuis GitHub puis, sur le Mac :
 ```bash
-age -d -i <(pbpaste) ~/Downloads/homelab-AAAA-MM-JJ.tar.gz.age | tar tzv      # clé secrète dans le presse-papiers
+age -d -i ~/.ssh/id_ed25519_homelab ~/Downloads/homelab-AAAA-MM-JJ.tar.gz.age | tar tzv      # demande la phrase secrète de la clé
 ```
 La liste doit montrer `env`, les deux `.tgz`, les clés de déploiement et `MANIFEST.txt`.
 
@@ -122,7 +122,7 @@ Se reconnecter (`ssh maxime@maxime.local`), puis :
 git clone https://github.com/maximelabatut/maximelabatut.git ~/docker
 mkdir -p ~/docker/www/html/data ~/docker/dashboard/data ~/docker/uptime-kuma/data
 ```
-Données d'Uptime Kuma (après avoir déchiffré l'archive : `age -d -i <(pbpaste) homelab-AAAA-MM-JJ.tar.gz.age | tar xzf - -C ~/restore-tmp`) : `scp ~/restore-tmp/uptime-kuma-data.tgz maxime@maxime.local:/tmp/` puis, sur le Pi, `tar xzf /tmp/uptime-kuma-data.tgz -C ~/docker/uptime-kuma/data` avant le premier `docker compose up -d`.
+Données d'Uptime Kuma (après avoir déchiffré l'archive : `mkdir ~/restore-tmp && age -d -i ~/.ssh/id_ed25519_homelab homelab-AAAA-MM-JJ.tar.gz.age | tar xzf - -C ~/restore-tmp`) : `scp ~/restore-tmp/uptime-kuma-data.tgz maxime@maxime.local:/tmp/` puis, sur le Pi, `tar xzf /tmp/uptime-kuma-data.tgz -C ~/docker/uptime-kuma/data` avant le premier `docker compose up -d`.
 
 (repo privé : d'abord `sudo apt install -y gh && gh auth login`). Sur le Mac :
 ```bash
@@ -165,7 +165,7 @@ sudo reboot
 
 | Symptôme | Cause / correction |
 |---|---|
-| `restaurer-pi.sh` : `Déchiffrement impossible` | mauvaise clé secrète age, ou archive incomplète (retélécharger) |
+| `restaurer-pi.sh` : `Déchiffrement impossible` | mauvaise clé ou phrase secrète (la clé doit être celle dont la partie publique est dans `/etc/homelab-backup/recipient` au moment de la sauvegarde), ou archive incomplète (retélécharger) |
 | `restaurer-pi.sh` : `Clonage impossible` | identifiants GitHub refusés : télécharger l'archive depuis la page du dépôt et la passer en argument |
 | `ssh: Could not resolve hostname maxime.local` | le Pi n'est pas encore sur le WiFi (attendre, vérifier les identifiants WiFi saisis dans Imager) |
 | `REMOTE HOST IDENTIFICATION HAS CHANGED` | `ssh-keygen -R maxime.local` (le script le fait déjà) |

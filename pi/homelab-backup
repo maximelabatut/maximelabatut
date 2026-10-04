@@ -4,12 +4,12 @@
 # Ce fichier est une COPIE root-owned du dépôt (pi/homelab-backup) : le modifier dans le dépôt n'a d'effet qu'après
 # une nouvelle installation (sudo bash ~/docker/pi/install-backup.sh).
 #
-# Contenu d'une sauvegarde (UNE archive par jour, chiffrée avec la clé PUBLIQUE age : le Pi ne peut pas la relire) :
+# Contenu d'une sauvegarde (UNE archive par jour, chiffrée avec une clé PUBLIQUE age ou SSH ed25519 : le Pi ne peut pas la relire) :
 #   env                              le .env (tokens Cloudflare, DOCKER_GID)
 #   uptime-kuma-data.tgz             instantané SQLite cohérent (journal WAL compris) + db-config.json
 #   gamevault-data.tgz               instantané SQLite de GameVault
 #   gamevault-deploy-key, homewatch-deploy-key   clés de déploiement (lecture seule) des dépôts privés
-#   homelab-backup/                  clé publique age, clé d'écriture du dépôt de sauvegardes, URL Uptime Kuma (si présente)
+#   homelab-backup/                  clé publique de chiffrement, clé d'écriture du dépôt de sauvegardes, URL Uptime Kuma (si présente)
 #   MANIFEST.txt                     date et résumé, sans secret
 # Les 30 dernières archives sont gardées ; l'historique git est réécrit à chaque envoi (un seul commit), donc les
 # anciennes archives disparaissent réellement de GitHub.
@@ -53,8 +53,9 @@ trap cleanup EXIT
 canon() { [ "$(realpath -e -- "$1" 2>/dev/null)" = "$1" ]; }
 need() { canon "$1" || { echo "homelab-backup : chemin refusé (absent ou lien symbolique) : $1" >&2; exit 1; }; }
 
+# Destinataire : clé publique age (age1...) ou clé publique SSH ed25519 (ssh-ed25519 AAAA...), une seule ligne.
 RECIPIENT="$(head -1 "$CONF/recipient" 2>/dev/null || true)"
-[[ "$RECIPIENT" =~ ^age1[a-z0-9]{50,}$ ]] || { echo "Clé publique age absente ou invalide : $CONF/recipient" >&2; exit 1; }
+[[ "$RECIPIENT" =~ ^(age1[a-z0-9]{50,}|ssh-ed25519\ AAAA[A-Za-z0-9+/=]{60,})$ ]] || { echo "Clé publique absente ou invalide : $CONF/recipient" >&2; exit 1; }
 [ -s "$CONF/deploy-key" ] && [ -s "$CONF/known_hosts" ] || { echo "Clé d'écriture ou known_hosts absents de $CONF (relancer install-backup.sh)" >&2; exit 1; }
 
 install -d -m 700 "$STATE" "$STATE/new"
@@ -99,7 +100,7 @@ Clés de déploiement : $(cd "$D" && ls *-deploy-key 2>/dev/null | tr '\n' ' ')
 EOF
 
 log "3/5 Archive chiffrée ($NAME)"
-tar czf - -C "$D" . | age -r "$RECIPIENT" -o "$STATE/new/$NAME"
+tar czf - -C "$D" . | age -R "$CONF/recipient" -o "$STATE/new/$NAME"
 head -c 21 "$STATE/new/$NAME" | grep -q '^age-encryption.org/' || { echo "Chiffrement invalide" >&2; exit 1; }
 SIZE="$(du -h "$STATE/new/$NAME" | cut -f1)"
 

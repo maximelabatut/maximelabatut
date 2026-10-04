@@ -3,7 +3,9 @@
 #   restaurer-pi.sh [archive.tar.gz.age]
 # Sans argument, la dernière archive est récupérée dans le dépôt privé de sauvegardes (identifiants GitHub demandés si besoin).
 # Sinon : télécharger l'archive depuis la page GitHub du dépôt (compte connecté) et passer son chemin en argument.
-# La clé SECRÈTE age (gestionnaire de mots de passe) est demandée sans affichage : elle n'est jamais écrite sur le disque.
+# Déchiffrement avec la clé SSH ~/.ssh/id_ed25519_homelab (age demande sa phrase secrète au terminal), ou toute autre
+# clé indiquée par AGE_KEY_FILE (clé SSH ed25519 ou fichier de clé age). À défaut, une clé secrète age (AGE-SECRET-KEY-...)
+# peut être collée : elle est demandée sans affichage et jamais écrite sur le disque.
 # Un seul mot de passe SSH à saisir (celui du Pi), plus le futur mot de passe Samba.
 set -euo pipefail
 
@@ -28,15 +30,19 @@ fi
 [ -f "$ARCHIVE" ] || { echo "Archive introuvable : $ARCHIVE"; exit 1; }
 echo "Archive : $(basename "$ARCHIVE")"
 
-if [ -n "${AGE_KEY_FILE:-}" ]; then
-  KEY="$(cat "$AGE_KEY_FILE")"
-else
-  read -r -s -p "Clé secrète age (AGE-SECRET-KEY-...) : " KEY; echo
-fi
-[[ "$KEY" == AGE-SECRET-KEY-* ]] || { echo "Ce n'est pas une clé secrète age."; exit 1; }
+IDENT="${AGE_KEY_FILE:-}"
+[ -z "$IDENT" ] && [ -f "$HOME/.ssh/id_ed25519_homelab" ] && IDENT="$HOME/.ssh/id_ed25519_homelab"
 mkdir -m 700 "$TMP/x"
-age -d -i <(printf '%s\n' "$KEY") "$ARCHIVE" | tar xzf - -C "$TMP/x" || { echo "Déchiffrement impossible (mauvaise clé ?)."; exit 1; }
-unset KEY
+if [ -n "$IDENT" ]; then
+  [ -f "$IDENT" ] || { echo "Clé introuvable : $IDENT"; exit 1; }
+  echo "Déchiffrement avec $IDENT (saisir sa phrase secrète si elle est demandée)."
+  age -d -i "$IDENT" "$ARCHIVE" | tar xzf - -C "$TMP/x" || { echo "Déchiffrement impossible (mauvaise clé ou phrase secrète ?)."; exit 1; }
+else
+  read -r -s -p "Clé secrète age (AGE-SECRET-KEY-...) ou, à défaut, relancer avec AGE_KEY_FILE=chemin de la clé SSH : " KEY; echo
+  [[ "$KEY" == AGE-SECRET-KEY-* ]] || { echo "Ce n'est pas une clé secrète age."; exit 1; }
+  age -d -i <(printf '%s\n' "$KEY") "$ARCHIVE" | tar xzf - -C "$TMP/x" || { echo "Déchiffrement impossible (mauvaise clé ?)."; exit 1; }
+  unset KEY
+fi
 echo "--- contenu de la sauvegarde :"; cat "$TMP/x/MANIFEST.txt"; echo "---"
 [ -f "$TMP/x/env" ] || { echo "Archive invalide : .env absent."; exit 1; }
 
