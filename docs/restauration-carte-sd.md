@@ -5,7 +5,7 @@ Tout est sur GitHub : le code et la configuration dans `github.com/maximelabatut
 **Ce qu'il faut avoir pour restaurer** (et rien d'autre) :
 1. l'accès à ton compte GitHub (pour télécharger l'archive)
 2. la clé SSH **`id_ed25519_homelab`** (fichier) et sa **phrase secrète**, dans le gestionnaire de mots de passe : sans elles, les archives sont illisibles pour toujours (le fichier de clé est lui-même chiffré par la phrase)
-3. le mot de passe de l'utilisateur `maxime` choisi dans Imager (et un poste avec `bash`, `ssh`, `git` et `age` : `brew install age`)
+3. le mot de passe de l'utilisateur `maxime` choisi dans Imager (et un poste avec `bash`, `ssh`, `git` et `age` ; sur macOS 13, `brew install age` échoue : `go install filippo.io/age/cmd/age@v1.3.2`, cf. `ajouter-un-site.md`, « Installer `age` sur le Mac »)
 
 ## Procédure rapide
 

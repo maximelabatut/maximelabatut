@@ -373,11 +373,40 @@ Le **Pi sauvegarde lui-même**, chaque jour, vers un dépôt GitHub **privé** d
 
 ### Mise en place (une fois)
 
-1. **Sur le Mac** : `brew install age`, puis afficher la clé **publique** SSH : `cat ~/.ssh/id_ed25519_homelab.pub` (une ligne `ssh-ed25519 AAAA...`, non secrète). C'est elle qui chiffre les sauvegardes ; la clé **privée** (`id_ed25519_homelab`, protégée par sa phrase secrète) les déchiffre. Aucune nouvelle clé à créer. Vérifier que le fichier de clé et sa phrase sont bien dans le gestionnaire de mots de passe. Ne jamais envoyer la clé privée à qui que ce soit, ni la mettre sur le Pi ou dans git.
+1. **Sur le Mac** : installer `age` (cf. « Installer `age` sur le Mac » ci-dessous), puis afficher la clé **publique** SSH : `cat ~/.ssh/id_ed25519_homelab.pub` (une ligne `ssh-ed25519 AAAA...`, non secrète). C'est elle qui chiffre les sauvegardes ; la clé **privée** (`id_ed25519_homelab`, protégée par sa phrase secrète) les déchiffre. Aucune nouvelle clé à créer. Vérifier que le fichier de clé et sa phrase sont bien dans le gestionnaire de mots de passe. Ne jamais envoyer la clé privée à qui que ce soit, ni la mettre sur le Pi ou dans git.
 2. **Dépôt GitHub** : privé, vide (`maximelabatut-backups`).
 3. **Sur le Pi** : `cd ~/docker && git pull && sudo bash pi/install-backup.sh`. Le script installe `age`, le timer et les scripts, demande la clé **publique** (la ligne `ssh-ed25519 AAAA...` de l'étape 1 ; une clé `age1...` est aussi acceptée), génère la clé d'écriture et affiche sa partie publique. L'ajouter dans GitHub → `maximelabatut-backups` → Settings → Deploy keys → Add deploy key, en **cochant « Allow write access »** (cette option ne peut pas être modifiée ensuite), puis Entrée : le script propose de lancer la première sauvegarde.
-4. **Vérifier** : le fichier `homelab-AAAA-MM-JJ.tar.gz.age` apparaît sur GitHub ; le télécharger et contrôler qu'il se déchiffre (`age -d -i ~/.ssh/id_ed25519_homelab fichier.age | tar tzv` ; `age` demande la phrase secrète de la clé, qu'il ne reprend pas du Trousseau). **Une sauvegarde jamais testée n'est pas une sauvegarde.**
+4. **Vérifier** : le fichier `homelab-AAAA-MM-JJ.tar.gz.age` apparaît sur GitHub ; le télécharger et contrôler qu'il se déchiffre (`age` demande la phrase secrète de la clé, qu'il ne reprend pas du Trousseau). **Une sauvegarde jamais testée n'est pas une sauvegarde.**
+   ```bash
+   age -d -i ~/.ssh/id_ed25519_homelab ~/Downloads/homelab-AAAA-MM-JJ.tar.gz.age | tar tzv          # liste du contenu
+   age -d -i ~/.ssh/id_ed25519_homelab ~/Downloads/homelab-AAAA-MM-JJ.tar.gz.age | tar xzO ./MANIFEST.txt   # résumé, sans secret
+   ```
+   La liste doit montrer `env`, `uptime-kuma-data.tgz`, `gamevault-data.tgz`, `gamevault-deploy-key`, `homewatch-deploy-key`, `homelab-backup/` et `MANIFEST.txt` ; le résumé, le nombre de tokens (8), de sondes et de jeux attendus. (Propriétaire `root` dans la liste : normal, la sauvegarde est faite en root ; le Mac ignore ce propriétaire à l'extraction.) Première validation faite le 04/10/2026 : 5,2 Mo, 8 tokens, 6 sondes, 2 539 jeux.
 5. **Alerte (recommandé)** : dans Uptime Kuma, ajouter un moniteur de type **Push** (« Heartbeat Interval » 90000 s ≈ 25 h, notification ntfy). Copier l'URL de push **sans** les paramètres (`http://localhost:8085/api/push/<jeton>`) dans `/etc/homelab-backup/push-url` (`sudo`, droits `600`). Le script envoie « up » après chaque réussite et « down » en cas d'échec ou d'exposition détectée ; sans nouvelle pendant 25 h (Pi éteint, GitHub inaccessible), Kuma alerte aussi.
+
+### Installer `age` sur le Mac (nécessaire pour tester et restaurer, pas pour sauvegarder)
+
+Le Pi chiffre avec son propre `age` (installé par `install-backup.sh`). Le Mac n'en a besoin que pour **déchiffrer** : test d'une archive, restauration.
+
+- Cas général : `brew install age`.
+- **macOS 13 (Intel) : `brew install age` échoue.** Homebrew n'a pas de binaire précompilé pour cette version (Tier 3), compile `age` depuis les sources, et son bac à sable coupe le réseau : le build s'arrête sur `dial tcp: lookup proxy.golang.org: no such host` alors que le réseau fonctionne. Relancer ne change rien. Go est en revanche installé par cette tentative ; compiler `age` directement, hors du bac à sable (modules vérifiés par la base de checksums de Go) :
+  ```bash
+  go install filippo.io/age/cmd/age@v1.3.2
+  echo 'export PATH="$HOME/go/bin:$PATH"' >> ~/.zshrc && source ~/.zshrc
+  age --version
+  ```
+- **Vérifier que la clé fonctionne** (ne touche à rien de réel, `age` demande la phrase secrète) :
+  ```bash
+  echo "test sauvegarde" | age -R ~/.ssh/id_ed25519_homelab.pub -o /tmp/test.age && age -d -i ~/.ssh/id_ed25519_homelab /tmp/test.age; rm -f /tmp/test.age
+  ```
+  Doit afficher `test sauvegarde`.
+
+### Migration depuis l'ancienne sauvegarde via le Mac (faite le 04/10/2026)
+
+L'ancien système (script `sauvegarder-pi.sh` lancé par `launchd` sur le Mac, règle `sudo` dédiée sur le Pi) a été retiré. Ordre suivi, à respecter pour ne jamais rester sans sauvegarde :
+1. Installer la nouvelle sauvegarde sur le Pi et **valider le déchiffrement d'une archive** (étapes 1 à 4 ci-dessus).
+2. **Seulement ensuite**, supprimer la tâche du Mac : `~/Backups/raspberrypi/planifier-sauvegarde.sh uninstall` (sinon l'ancien script échouerait chaque jour, sa règle `sudo` ayant été retirée par `install-backup.sh`).
+3. `~/Backups/raspberrypi` n'est plus mis à jour et contient des **secrets en clair** (`.env`, bases, clés de déploiement). Après quelques sauvegardes automatiques réussies, le supprimer ou en effacer le contenu (hors scripts périmés, à ne pas réutiliser : les versions à jour sont dans le dépôt).
 
 ### Fonctionnement d'une exécution
 
@@ -693,4 +722,5 @@ Les fichiers parasites macOS (`.DS_Store`, `._*`) créés par le Finder sont exc
 | Dozzle « Conteneur non trouvé » depuis un lien du dashboard | Le lien utilise l'ID du conteneur, qui change quand il est recréé ; `containers.json` n'est pas encore à jour, ou `dashboard-sync` est arrêté | Attendre 10 s et recharger ; vérifier `docker compose ps` pour `dashboard-sync` |
 | Noms de conteneurs non cliquables dans le dashboard | `/containers.json` absent (`dashboard-sync` jamais lancé ou dossier `dashboard/data` manquant) | `docker compose up -d`, vérifier que `~/docker/dashboard/data/containers.json` existe |
 | Aucune température visible dans Netdata | Le graphique s'appelle `sensors...`, pas `temp...` | Chercher `sensors` dans « Search charts » |
+| `brew install age` : `lookup proxy.golang.org: no such host` (macOS 13) | Pas de binaire précompilé : Homebrew compile `age` dans un bac à sable sans réseau. Le réseau, lui, fonctionne | `go install filippo.io/age/cmd/age@v1.3.2` (cf. « Installer `age` sur le Mac ») |
 | Un site affiche le contenu d'un autre | Port changé dans `docker-compose.yml` mais pas dans l'URL de la route du tunnel | Mettre à jour le port dans Published application routes |
