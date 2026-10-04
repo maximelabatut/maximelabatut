@@ -45,30 +45,84 @@ Ce dépôt contient **toute la configuration de mon serveur personnel** : les co
 ## Architecture
 
 ```mermaid
-flowchart LR
-    V(["Visiteur"]) -->|"HTTPS"| CF["Cloudflare<br/>DNS · TLS · Access + MFA"]
-    CF ==>|"tunnel chiffré<br/>(connexion sortante)"| T
-    subgraph PI ["Raspberry Pi 4 · Docker Compose"]
-        T["cloudflared<br/>1 tunnel par application"]
-        T --> S["Sites<br/>nginx"]
-        T --> M["Supervision<br/>dashboard · Netdata · Dozzle"]
+flowchart TB
+    V(["Visiteur"])
+    subgraph NET ["Internet"]
+        CF["Cloudflare<br/>DNS · TLS · Access + MFA"]
+        GH[("GitHub<br/>code public<br/>sauvegardes chiffrées (dépôt privé)")]
+        NTFY["ntfy.sh"]
     end
+    subgraph PI ["Raspberry Pi 4 · Docker Compose"]
+        CFD["cloudflared<br/>1 tunnel par application"]
+        subgraph APPS ["Applications"]
+            SITES["Sites publics<br/>nginx"]
+            PRIV["Applications perso<br/>Python · protégées par Access"]
+        end
+        subgraph SUP ["Supervision · protégée par Access"]
+            DASH["Dashboard"]
+            ND["Netdata"]
+            DZ["Dozzle"]
+            UK["Uptime Kuma"]
+        end
+        BK["Sauvegarde quotidienne<br/>timer systemd · SQLite · age"]
+        SMB["Samba"]
+    end
+    MAC["Mac<br/>poste d'administration"]
+    PHONE(["Téléphone"])
+
+    V -->|"HTTPS"| CF
+    CF ==>|"tunnel chiffré<br/>connexion sortante du Pi"| CFD
+    CFD --> SITES
+    CFD --> PRIV
+    CFD --> DASH
+    CFD --> ND
+    CFD --> DZ
+    CFD --> UK
+    UK -->|"alerte si un service ne répond plus"| NTFY --> PHONE
+    BK -->|"archive chiffrée<br/>1 par jour, 30 conservées"| GH
+    GH -.->|"restauration"| MAC
+    MAC -.->|"SSH : réinstalle tout"| PI
+    MAC <-->|"fichiers · SMB · réseau local"| SMB
 ```
 
-Le Pi ouvre lui-même la connexion vers Cloudflare. Rien n'est exposé directement sur Internet, et les outils d'administration ne sont atteignables qu'après authentification.
+Chaque trait est une connexion qui existe réellement. Les traits pleins sont les flux de service ; les pointillés ne servent qu'à la restauration.
+
+### Les flux
+
+| Flux | Chemin | Ce qu'il faut retenir |
+|---|---|---|
+| **Visite d'un site** | Visiteur → Cloudflare → tunnel → conteneur | Le Pi **ouvre lui-même** la connexion vers Cloudflare : aucun port n'est ouvert sur la box. Chaque application a son propre tunnel, donc son propre token et sa propre panne possible. |
+| **Applications et outils d'administration** | Visiteur → Cloudflare Access (+ MFA) → tunnel → conteneur | L'authentification est faite **avant** que la requête n'atteigne le Pi. Seules les pages d'accueil publiques sont ouvertes. |
+| **Supervision et alertes** | Uptime Kuma surveille les services ; en cas de panne il notifie via ntfy, qui prévient le téléphone | La surveillance tourne **sur le Pi** : elle ne voit pas une panne du Pi lui-même (la sauvegarde envoie un signal de vie qui couvre ce cas). |
+| **Sauvegarde** | Timer systemd → instantané cohérent des bases → archive chiffrée → dépôt GitHub privé | Une archive par jour, 30 conservées. Le Pi ne détient que la clé *publique* de chiffrement : il ne peut pas relire ses propres sauvegardes. |
+| **Restauration** | Mac : récupération de l'archive, déchiffrement, réinstallation du Pi par SSH | Une carte SD vierge devient un homelab complet en une commande. Un test à blanc sans Pi vérifie régulièrement que c'est possible. |
+| **Fichiers** | Mac ⇄ Samba (réseau local uniquement) | Le dossier du dépôt est modifiable depuis le Mac comme un disque réseau. |
+
+### Frontières de confiance
+
+- **Internet → Pi** : un seul chemin, les tunnels Cloudflare ; aucun port n'est redirigé sur la box.
+- **Réseau local** : les sites publics, le dashboard et les métriques sont aussi joignables depuis le réseau de la maison. Les services les plus sensibles (logs, surveillance, applications personnelles) n'écoutent que sur la boucle locale de la machine : seul `cloudflared` les joint.
+- **Public / protégé** : deux sites sont publics ; tout le reste est derrière Cloudflare Access avec second facteur.
+- **Secrets** : tokens et mots de passe vivent dans un `.env` et des fichiers hors de git ; ils ne quittent le Pi que **chiffrés** (sauvegarde).
+- **Administration** : SSH par clé uniquement, depuis le réseau local ; un contrôle automatique vérifie chaque jour que rien n'est exposé sans Access.
+- **Durcissement des conteneurs** : utilisateur non root, système de fichiers en lecture seule et capacités retirées, là où c'est utile.
 
 ## La stack
 
-| Couche | Technologies |
-|---|---|
-| Matériel | [Raspberry Pi 4](https://www.raspberrypi.com/) (4 Go), boîtier [Argon ONE V2](https://argon40.com/) (ventilateur régulé) |
-| Système | Raspberry Pi OS Lite 64 bits |
-| Conteneurs | [Docker Compose](https://docs.docker.com/compose/), 18 conteneurs |
-| Serveur web | [nginx](https://nginx.org/) |
-| Réseau et sécurité | [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/), [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/access-controls/) avec MFA |
-| Supervision | [Netdata](https://www.netdata.cloud/) (métriques), [Dozzle](https://dozzle.dev/) (logs), [Uptime Kuma](https://github.com/louislam/uptime-kuma) (surveillance) avec alertes [ntfy](https://ntfy.sh/) sur téléphone, dashboard en HTML/JavaScript sans dépendance |
-| Fichiers | [Samba](https://www.samba.org/) |
-| Automatisation | scripts shell (restauration, statut public, liste des conteneurs) |
+| Couche | Technologie | Rôle |
+|---|---|---|
+| Matériel | [Raspberry Pi 4](https://www.raspberrypi.com/) Model B (4 Go), boîtier [Argon ONE V2](https://argon40.com/) | Serveur, ventilateur régulé par la température |
+| Système | Raspberry Pi OS Lite 64 bits (base Debian), `systemd` | Système minimal sans interface graphique ; timers pour la sauvegarde |
+| Conteneurs | [Docker Engine et Compose v2](https://docs.docker.com/compose/), 18 conteneurs | Un conteneur par application, un fichier de déploiement |
+| Web | [nginx](https://nginx.org/) (image officielle), Python 3.12 (`python:3.12-slim`) | Sites statiques ; applications Python |
+| Tunnel et accès | [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) (image officielle), [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/access-controls/) avec MFA | Publication sans port ouvert, authentification en amont |
+| Supervision | [Netdata](https://www.netdata.cloud/) (branche stable), [Dozzle](https://dozzle.dev/), [Uptime Kuma](https://github.com/louislam/uptime-kuma) 2 (SQLite) | Métriques, logs, surveillance |
+| Alertes | [ntfy](https://ntfy.sh/) | Notifications sur téléphone |
+| Dashboard | HTML / JavaScript sans dépendance, servi par nginx | Vue d'ensemble : un tiroir par application, consommation CPU, accès aux logs |
+| Fichiers | [Samba](https://www.samba.org/) | Partage du dossier du dépôt avec le Mac |
+| Données | SQLite (instantanés par `.backup`, cohérents même pendant l'écriture) | Bases d'Uptime Kuma et des applications |
+| Sauvegarde | `systemd` timer, [age](https://age-encryption.org/) (chiffrement), `git` vers un dépôt GitHub privé | Archive chiffrée quotidienne, 30 jours |
+| Automatisation | scripts `bash` | Restauration, sauvegarde, contrôle d'exposition, statut public, liste des conteneurs |
 
 ## Structure du dépôt
 
@@ -101,7 +155,7 @@ docker compose up -d
 
 | Variable | Rôle |
 |---|---|
-| `CLOUDFLARE_TUNNEL_TOKEN_WWW`, `_GAMEVAULT`, `_WEB2`, `_CONFIG`, `_LOGS`, `_NETDATA`, `_UPTIME`, `_HOMEWATCH` | Un token par tunnel Cloudflare, un tunnel par application |
+| `CLOUDFLARE_TUNNEL_TOKEN_<APPLICATION>` | Un token par tunnel Cloudflare, un tunnel par application (la liste est dans `.env.example`) |
 | `DOCKER_GID` | Identifiant du groupe `docker` de la machine, lu par Netdata (`getent group docker \| cut -d: -f3`) |
 
 ## Sécurité
@@ -110,6 +164,7 @@ docker compose up -d
 - Aucun port ouvert sur la box : les tunnels sont des connexions sortantes.
 - Les outils de supervision sont derrière **Cloudflare Access + MFA**, et Dozzle n'écoute que sur `127.0.0.1`.
 - Le statut public (`www/html/data/status.json`) ne contient que « en ligne / hors ligne » et l'uptime.
+- Les sauvegardes quittent le Pi **chiffrées** (clé publique sur le Pi, clé privée hors du Pi) et un contrôle quotidien vérifie qu'aucun service protégé n'est exposé.
 
 ## Restauration
 
