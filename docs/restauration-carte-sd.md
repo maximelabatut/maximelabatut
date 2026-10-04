@@ -36,29 +36,38 @@ Il enchaîne tout seul : envoi du `.env`, des données d'Uptime Kuma, de la clé
 - Finder → `Cmd+K` → `smb://maxime.local/docker`
 - `vcgencmd get_throttled` → `throttled=0x0`
 
-### 4. Réappliquer le durcissement SSH (carte neuve)
+### 4. Homewatch : première connexion (carte neuve)
+
+Le jeton de session de Homewatch n'est pas exporté (il contient un mot de passe en clair) : après la restauration, refaire la connexion une fois, au terminal du Pi :
+```bash
+cd ~/docker && docker compose run --rm homewatch
+```
+(e-mail, mot de passe, code de vérification ; Ctrl-C après « Connecté », puis `docker compose up -d homewatch`). Détails dans `ajouter-un-site.md`.
+
+### 5. Réappliquer le durcissement SSH (carte neuve)
 
 La carte fraîchement flashée accepte de nouveau les mots de passe. Une fois la restauration terminée, refaire la procédure « Mise en place » de la section « Durcissement SSH » de `docs/ajouter-un-site.md` (étapes 2 à 5 : `ssh-copy-id`, test par clé, `00-hardening.conf`, contrôle).
 
 ## Fichiers nécessaires dans `~/Backups/raspberrypi`
 
-**Strictement nécessaires (5 fichiers)** pour une restauration complète à l'identique :
+**Strictement nécessaires (6 fichiers)** pour une restauration complète à l'identique :
 
 | Fichier | Pourquoi | S'il manque |
 |---|---|---|
-| `.env` | les 7 tokens des tunnels Cloudflare | `restaurer-pi.sh` **s'arrête** (`Fichier introuvable`). Les tokens se récupèrent un par un dans Cloudflare, mais il faut le fichier pour lancer le script |
+| `.env` | les 8 tokens des tunnels Cloudflare | `restaurer-pi.sh` **s'arrête** (`Fichier introuvable`). Les tokens se récupèrent un par un dans Cloudflare, mais il faut le fichier pour lancer le script |
 | `restaurer-pi.sh` | le script de restauration | à retrouver dans le dépôt (`mac/restaurer-pi.sh`) tant qu'il est public |
 | `uptime-kuma-data.tgz` | compte administrateur, sondes, notification ntfy | Uptime Kuma redemande l'installation (~10 min à refaire à la main) |
 | `gamevault-data.tgz` | la base GameVault (catalogue de jeux, wishlist) | GameVault repart avec une **base vide** : c'est la seule donnée irremplaçable du projet |
 | `gamevault-deploy-key` | clé de déploiement (lecture seule) qui permet de cloner le dépôt privé `gamevault` | sans elle (ni dossier de code local), le conteneur `gamevault` n'a pas de code et **ne démarre pas** |
+| `homewatch-deploy-key` | même principe pour le dépôt privé `homewatch` (une clé par dépôt) | le conteneur `homewatch` n'a pas de code et ne se construit pas |
 
 Les deux archives ne bloquent pas le script (il continue en prévenant), mais sans elles on perd justement ce qu'on cherche à protéger.
 
 **Pas nécessaires pour restaurer** :
 - `restore.sh` : téléchargé depuis GitHub à chaque exécution par `restaurer-pi.sh` ; la copie locale n'est qu'un secours si GitHub est injoignable
-- `sauvegarder-pi.sh`, `planifier-sauvegarde.sh` : ils servent à *faire* les sauvegardes
+- `sauvegarder-pi.sh`, `planifier-sauvegarde.sh`, `verifier-acces.sh` : ils servent à *faire* les sauvegardes et à contrôler l'exposition
 - `historique/` (14 versions précédentes des archives) et `.env.prev` : utiles seulement si la dernière sauvegarde est mauvaise
-- `gamevault-deploy-key.pub` : la partie publique, déjà enregistrée dans les Deploy keys du dépôt, jamais lue par les scripts
+- `gamevault-deploy-key.pub`, `homewatch-deploy-key.pub` : les parties publiques, déjà enregistrées dans les Deploy keys des dépôts, jamais lues par les scripts
 - `.DS_Store` : fichier parasite macOS
 
 **Hors de ce dossier, mais indispensable** :
@@ -66,13 +75,13 @@ Les deux archives ne bloquent pas le script (il continue en prévenant), mais sa
 - le dépôt GitHub du homelab doit rester **public** : `restore.sh` s'y clone sans identifiants (en privé, le clonage échouerait)
 - le dépôt privé `gamevault` et sa clé de déploiement dans ses réglages (côté GitHub, rien à sauvegarder)
 
-**Copie hors du Mac** : pour survivre à la perte du Mac, copier ces 5 fichiers (et la clé SSH) sur un support externe. Ils contiennent des secrets (tokens, hash du compte, canal ntfy) : sur un support externe, les mettre dans un volume **chiffré**.
+**Copie hors du Mac** : pour survivre à la perte du Mac, copier ces 6 fichiers (et la clé SSH) sur un support externe. Ils contiennent des secrets (tokens, hash du compte, canal ntfy) : sur un support externe, les mettre dans un volume **chiffré**.
 
 ## Prérequis à garder en état
 
 | Quoi | Où | Mise à jour |
 |---|---|---|
-| `.env` (7 tokens) | `~/Backups/raspberrypi/.env` | automatique chaque nuit (ou `~/Backups/raspberrypi/sauvegarder-pi.sh` à la main) |
+| `.env` (8 tokens) | `~/Backups/raspberrypi/.env` | automatique chaque nuit (ou `~/Backups/raspberrypi/sauvegarder-pi.sh` à la main) |
 | Données d'Uptime Kuma (compte, canal ntfy, sondes) | `~/Backups/raspberrypi/uptime-kuma-data.tgz` | automatique chaque nuit |
 | Base de GameVault (catalogue, wishlist) | `~/Backups/raspberrypi/gamevault-data.tgz` | `~/Backups/raspberrypi/sauvegarder-pi.sh` (automatique chaque nuit à 03h30 via `planifier-sauvegarde.sh`) |
 | Clé SSH d'accès au Pi (+ phrase secrète) | `~/.ssh/id_ed25519_homelab`, bloc `Host maxime.local` dans `~/.ssh/config`, phrase secrète dans le Trousseau d'accès | copie du fichier et de la phrase dans le gestionnaire de mots de passe (sans elle, SSH est inaccessible : reflasher et restaurer) |
@@ -114,7 +123,7 @@ sed -i -e '$a\' .env
 printf 'DOCKER_GID=%s\n' "$(getent group docker | cut -d: -f3)" >> .env
 awk -F= 'NF>1 {print $1, length($2)}' .env
 ```
-Contrôle : 7 tokens de 184 caractères et `DOCKER_GID 3`, chacun sur sa ligne. Puis Samba :
+Contrôle : 8 tokens de 184 caractères et `DOCKER_GID 3`, chacun sur sa ligne. Puis Samba :
 ```bash
 sudo apt install -y samba samba-common-bin
 sudo tee -a /etc/samba/smb.conf > /dev/null <<'EOF'

@@ -191,6 +191,7 @@ const APPS = [
   { id: 'dashboard', category: 'tech', name: 'Dashboard', url: 'https://config.maximelabatut.com', members: ['dashboard', 'dashboard-sync', 'cloudflared-config'] },
   { id: 'netdata', category: 'tech', name: 'Netdata', url: 'https://netdata.maximelabatut.com', members: ['netdata', 'cloudflared-netdata'] },
   { id: 'dozzle', category: 'tech', name: 'Logs (Dozzle)', url: 'https://logs.maximelabatut.com', members: ['dozzle', 'cloudflared-logs'] },
+  { id: 'homewatch', category: 'main', name: 'Homewatch', url: 'https://homewatch.maximelabatut.com', members: ['homewatch', 'cloudflared-homewatch'] },
   { id: 'uptime', category: 'tech', name: 'Uptime Kuma', url: 'https://uptime.maximelabatut.com', members: ['uptime-kuma', 'cloudflared-uptime'] }
 ];
 
@@ -209,6 +210,8 @@ const DESCRIPTIONS = {
   'netdata': 'Collecte les métriques du Pi : température, CPU, RAM, disque, réseau, conteneurs',
   'dozzle': 'Visionneuse de logs en direct de tous les conteneurs (lecture seule)',
   'cloudflared-logs': 'Publie Dozzle (logs.maximelabatut.com)',
+  'homewatch': 'Application privée (code cloné depuis un dépôt privé, derrière Cloudflare Access + MFA, port 8086)',
+  'cloudflared-homewatch': 'Publie Homewatch (homewatch.maximelabatut.com)',
   'uptime-kuma': 'Surveille les sites toutes les minutes et envoie une alerte sur le téléphone (ntfy) en cas de panne',
   'cloudflared-uptime': 'Publie Uptime Kuma (uptime.maximelabatut.com)'
 };

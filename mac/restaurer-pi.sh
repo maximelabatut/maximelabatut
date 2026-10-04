@@ -42,6 +42,13 @@ fi
 GV_DIR="${GV_DIR:-$HOME/Backups/raspberrypi/GameVault}"
 GV_KEY="${GV_KEY:-$HOME/Backups/raspberrypi/gamevault-deploy-key}"
 GV_DATA="${GV_DATA:-$HOME/Backups/raspberrypi/gamevault-data.tgz}"
+HW_KEY="${HW_KEY:-$HOME/Backups/raspberrypi/homewatch-deploy-key}"
+if [ -f "$HW_KEY" ]; then
+  scp "${OPTS[@]}" "$HW_KEY" "$HOST:/tmp/homewatch-deploy-key"
+  echo "Clé de déploiement Homewatch envoyée : le code sera cloné depuis le dépôt privé."
+else
+  echo "Pas de clé de déploiement Homewatch ($HW_KEY) : le conteneur homewatch ne se construira pas."
+fi
 if [ -f "$GV_KEY" ]; then
   scp "${OPTS[@]}" "$GV_KEY" "$HOST:/tmp/gamevault-deploy-key"
   echo "Clé de déploiement envoyée : le code de GameVault sera récupéré depuis le dépôt privé GitHub."

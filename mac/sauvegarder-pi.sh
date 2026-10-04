@@ -42,6 +42,17 @@ trap cleanup EXIT
 OPTS=(-o ControlMaster=auto -o ControlPath="$SOCK" -o ControlPersist=5m -o ConnectTimeout=15)
 [ "$AUTO" = 1 ] && OPTS+=(-o BatchMode=yes)
 
+# Contrôle d'exposition (Cloudflare Access) : indépendant du Pi, signalé à part de la sauvegarde.
+CHECK="$(cd "$(dirname "$0")" && pwd)/verifier-acces.sh"
+if [ -x "$CHECK" ]; then
+  ACCESS_RC=0
+  ACCESS_OUT="$("$CHECK" --quiet 2>&1)" || ACCESS_RC=$?
+  if [ "$ACCESS_RC" = 1 ]; then
+    echo "!! EXPOSITION DÉTECTÉE :"; echo "$ACCESS_OUT"
+    notify "Exposition détectée" "$(echo "$ACCESS_OUT" | head -1 | cut -c1-110)"
+  fi
+fi
+
 echo "Connexion au Pi..."
 ssh "${OPTS[@]}" "$HOST" true
 

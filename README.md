@@ -63,7 +63,7 @@ Le Pi ouvre lui-même la connexion vers Cloudflare. Rien n'est exposé directeme
 |---|---|
 | Matériel | [Raspberry Pi 4](https://www.raspberrypi.com/) (4 Go), boîtier [Argon ONE V2](https://argon40.com/) (ventilateur régulé) |
 | Système | Raspberry Pi OS Lite 64 bits |
-| Conteneurs | [Docker Compose](https://docs.docker.com/compose/), 16 conteneurs |
+| Conteneurs | [Docker Compose](https://docs.docker.com/compose/), 18 conteneurs |
 | Serveur web | [nginx](https://nginx.org/) |
 | Réseau et sécurité | [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/), [Cloudflare Access](https://developers.cloudflare.com/cloudflare-one/access-controls/) avec MFA |
 | Supervision | [Netdata](https://www.netdata.cloud/) (métriques), [Dozzle](https://dozzle.dev/) (logs), [Uptime Kuma](https://github.com/louislam/uptime-kuma) (surveillance) avec alertes [ntfy](https://ntfy.sh/) sur téléphone, dashboard en HTML/JavaScript sans dépendance |
@@ -74,7 +74,7 @@ Le Pi ouvre lui-même la connexion vers Cloudflare. Rien n'est exposé directeme
 
 ```
 .
-├── docker-compose.yml      # les 16 conteneurs (sites, tunnels, supervision)
+├── docker-compose.yml      # les 18 conteneurs (sites, tunnels, supervision)
 ├── .env.example            # variables attendues (le vrai .env n'est jamais versionné)
 ├── www/                    # page d'accueil + www-status (statut public en direct)
 ├── web2/                   # application (nginx)
@@ -100,7 +100,7 @@ docker compose up -d
 
 | Variable | Rôle |
 |---|---|
-| `CLOUDFLARE_TUNNEL_TOKEN_WWW`, `_GAMEVAULT`, `_WEB2`, `_CONFIG`, `_LOGS`, `_NETDATA`, `_UPTIME` | Un token par tunnel Cloudflare, un tunnel par application |
+| `CLOUDFLARE_TUNNEL_TOKEN_WWW`, `_GAMEVAULT`, `_WEB2`, `_CONFIG`, `_LOGS`, `_NETDATA`, `_UPTIME`, `_HOMEWATCH` | Un token par tunnel Cloudflare, un tunnel par application |
 | `DOCKER_GID` | Identifiant du groupe `docker` de la machine, lu par Netdata (`getent group docker \| cut -d: -f3`) |
 
 ## Sécurité

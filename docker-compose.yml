@@ -111,6 +111,26 @@ services:
     volumes:
       - ./uptime-kuma/data:/app/data
 
+  homewatch:
+    build: ./homewatch/app
+    image: homewatch:local
+    container_name: homewatch
+    restart: unless-stopped
+    user: "1000:1000"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    ports:
+      - "127.0.0.1:8086:5000"
+    volumes:
+      - ./homewatch/data:/data
+    tmpfs:
+      - /run/hls:uid=1000,gid=1000,size=256m
+      - /tmp
+
   cloudflared-www:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-www
@@ -159,6 +179,13 @@ services:
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_UPTIME}
+
+  cloudflared-homewatch:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-homewatch
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_HOMEWATCH}
 
 volumes:
   netdataconfig:

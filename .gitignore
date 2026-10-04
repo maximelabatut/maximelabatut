@@ -7,3 +7,5 @@ dashboard/data/containers.json
 uptime-kuma/data/
 gamevault/app/
 gamevault/data/
+homewatch/app/
+homewatch/data/

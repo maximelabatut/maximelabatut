@@ -14,7 +14,7 @@ La procédure complète (rapide et manuelle) est dans **`restauration-carte-sd.m
 
 Rappels propres au projet (détails dans cette doc) :
 - Les tunnels Cloudflare, Access et le MFA ne dépendent pas de la carte : rien à refaire côté Cloudflare.
-- Il faut un token par tunnel dans `.env` : `WWW`, `GAMEVAULT`, `WEB2`, `CONFIG`, `LOGS`, `NETDATA`, `UPTIME`. `DOCKER_GID` est recalculé à chaque installation (jamais restauré), sur sa propre ligne : si la dernière ligne du fichier n'a pas de retour à la ligne final, la valeur se colle au token précédent et le corrompt (`Provided Tunnel token is not valid`).
+- Il faut un token par tunnel dans `.env` : `WWW`, `GAMEVAULT`, `WEB2`, `CONFIG`, `LOGS`, `NETDATA`, `UPTIME`, `HOMEWATCH`. `DOCKER_GID` est recalculé à chaque installation (jamais restauré), sur sa propre ligne : si la dernière ligne du fichier n'a pas de retour à la ligne final, la valeur se colle au token précédent et le corrompt (`Provided Tunnel token is not valid`).
 - Les dossiers `www/html/data` et `dashboard/data` (remplis par `www-status` et `dashboard-sync`, non versionnés) sont recréés par `mkdir -p` avant le premier lancement, pour qu'ils appartiennent à `maxime`.
 - Le mot de passe Samba est redéfini à la restauration (`smbpasswd`) ; s'il change, supprimer l'ancienne entrée `maxime.local` du Trousseau d'accès du Mac avant de se reconnecter au partage.
 
@@ -171,6 +171,7 @@ Chaque application est un tiroir (`<details>`) regroupant son conteneur nginx et
 |---|---|
 | Site principal | `www` + `www-status` + `cloudflared-www` |
 | GameVault | `gamevault` (Python) + `cloudflared-gamevault` |
+| Homewatch | `homewatch` + `cloudflared-homewatch` |
 | Web2 | `web2` + `cloudflared-web2` |
 
 **Outils techniques et maintenance** (`tech`)
@@ -389,6 +390,53 @@ cd ~/docker && sudo bash pi/install-backup.sh
 
 ---
 
+## Homewatch (application privée)
+
+Application privée de visualisation, développée à part : son code vit dans le dépôt **privé** `github.com/maximelabatut/homewatch`, dont le `README.md` détaille le fonctionnement, la configuration et la sécurité. Ici, seulement ce qu'il faut pour l'héberger. **Volontairement sobre** : cette documentation est publique, les détails de l'application restent dans le dépôt privé.
+
+| Élément | Emplacement | Versionné dans le dépôt du homelab ? |
+|---|---|---|
+| Code | `~/docker/homewatch/app/` (clone du dépôt privé) | non (`.gitignore`) |
+| Données (jeton de session) | `~/docker/homewatch/data/` | non (`.gitignore`) et **jamais exportées** |
+| Segments vidéo temporaires | `tmpfs` en mémoire (`/run/hls`) | non, éphémères (aucune écriture sur la carte SD) |
+
+Le service `homewatch` est construit sur place (`build: ./homewatch/app`, image Python + ffmpeg) et durci : utilisateur non root (`1000:1000`), système de fichiers en lecture seule, aucune capacité Linux (`cap_drop: ALL`), `no-new-privileges`, mémoire limitée à 512 Mo **dans le compose mais non appliquée sur ce Pi** (voir ci-dessous), port publié sur `127.0.0.1:8086` uniquement.
+
+**Limite mémoire non appliquée** : au démarrage, Docker affiche `Your kernel does not support memory limit capabilities or the cgroup is not mounted. Limitation discarded.` Raspberry Pi OS désactive par défaut le contrôle de mémoire des cgroups : `mem_limit` est donc ignoré, ici comme pour tous les conteneurs (c'est aussi pourquoi le dashboard n'affiche pas la mémoire par conteneur). L'activer demande d'ajouter `cgroup_enable=memory cgroup_memory=1` à la **fin de l'unique ligne** de `/boot/firmware/cmdline.txt` puis de redémarrer ; non fait à ce jour, la ligne du compose reste en place pour le jour où ce sera activé.
+
+### Accès : uniquement derrière Cloudflare Access + MFA
+
+⚠️ L'application n'a **aucune authentification propre**. `homewatch.maximelabatut.com` doit donc être dans les destinations de l'application Cloudflare Access (email + code + MFA) **avant** de publier la route du tunnel, et ne doit **jamais** être rendue publique. Après la mise en place, vérifier avec `~/Backups/raspberrypi/verifier-acces.sh` (cf. « Contrôle d'accès ») que l'adresse répond par la redirection vers Cloudflare Access et pas par l'application.
+
+### Mise en place (une fois)
+
+1. **Clé de déploiement** (lecture seule) : `ssh-keygen -t ed25519 -N "" -C "homewatch-deploy@homelab" -f ~/Backups/raspberrypi/homewatch-deploy-key`, puis GitHub → dépôt `homewatch` → Settings → Deploy keys → Add deploy key, **sans cocher « Allow write access »** (une clé par dépôt : celle de GameVault ne peut pas servir ici).
+2. **Cloudflare** : tunnel `homewatch` (token dans `.env` : `CLOUDFLARE_TUNNEL_TOKEN_HOMEWATCH`) ; ajouter `homewatch.maximelabatut.com` aux destinations Access ; **puis** ajouter la route → `http://localhost:8086`.
+3. **Sur le Pi** : installer la clé (`~/.ssh/homewatch_deploy`, `600`, bloc `Host github-homewatch` dans `~/.ssh/config`) et cloner : `git clone git@github-homewatch:maximelabatut/homewatch.git ~/docker/homewatch/app`.
+4. **Construire et se connecter** (le code de vérification à deux facteurs se saisit au terminal) :
+```bash
+cd ~/docker
+docker compose build homewatch
+docker compose run --rm homewatch     # e-mail, mot de passe, code ; Ctrl-C après « Connecté »
+docker compose up -d homewatch cloudflared-homewatch
+```
+5. **Uptime Kuma** : sonde HTTP `http://homewatch:5000/` (réseau Docker partagé).
+
+### Mettre à jour
+
+```bash
+git -C ~/docker/homewatch/app pull
+cd ~/docker && docker compose up -d --build homewatch
+```
+
+### Sauvegarde et restauration
+
+- Le **code** est cloné par `restore.sh` avec la clé `homewatch-deploy-key` (envoyée par `restaurer-pi.sh`), comme pour GameVault.
+- Le **jeton de session n'est volontairement pas exporté** : le fichier contient le mot de passe du compte en clair, et une copie de plus sur le Mac (même en `600`) augmenterait inutilement l'exposition. Après une restauration, refaire la première connexion (`docker compose run --rm homewatch`, ~2 minutes) ; `restore.sh` le rappelle en fin d'exécution. Tant qu'elle n'est pas faite, le conteneur s'arrête avec un message explicite et redémarre en boucle sans rien exposer.
+- Sans jeton ni terminal, le conteneur échoue (code 2) plutôt que d'attendre une saisie.
+
+---
+
 ## Page d'accueil publique (www.maximelabatut.com)
 
 Vitrine du homelab : `www/html/index.html`, une page statique sans dépendance externe (fond crème, accents terracotta, polices système). Sections : accueil avec pastille d'état en direct, cartes des applications (GameVault, Web2) avec statut, schéma du trajet d'une visite (visiteur → Cloudflare → tunnel → Raspberry Pi → Docker, vertical sur mobile), technologies utilisées, contact (GitHub). Les animations respectent `prefers-reduced-motion`.
@@ -440,6 +488,20 @@ Lien direct d'enrôlement : `https://holy-silence-502a.cloudflareaccess.com/AddM
 
 Après l'enrôlement, Cloudflare peut te renvoyer sur la page d'accueil de l'organisation : retaper simplement l'URL du site voulu.
 
+### Contrôle d'accès (verifier-acces.sh)
+
+`mac/verifier-acces.sh` (copie dans `~/Backups/raspberrypi/`) vérifie, **depuis l'extérieur et sans être connecté**, que chaque sous-domaine est protégé par Access (ou public) comme prévu. Une application derrière Access répond **toujours** par un `302` vers `*.cloudflareaccess.com`, même si son conteneur est arrêté : toute autre réponse (200, 5xx, redirection ailleurs) veut dire qu'Access ne l'intercepte pas, donc une **exposition**.
+
+| Sous-domaines | Attendu |
+|---|---|
+| `www`, `web2` | publics (HTTP 200) |
+| `config`, `netdata`, `logs`, `uptime`, `gamevault`, `homewatch` | derrière Access (302 vers `cloudflareaccess.com`) |
+
+- Lancement manuel : `~/Backups/raspberrypi/verifier-acces.sh` (tableau complet ; code de sortie 0 = conforme, 1 = anomalie, 2 = pas de réseau). `--quiet` n'affiche que les anomalies.
+- **Chaque nuit**, `sauvegarder-pi.sh` le lance en premier : en cas d'anomalie, notification macOS « Exposition détectée » et ligne dans `~/Library/Logs/homelab-backup.log` (la sauvegarde se poursuit).
+- **Règle** : toute nouvelle application ajoutée au `docker-compose.yml` doit être ajoutée aux listes `PUBLIC_HOSTS` / `PROTECTED_HOSTS` du script, sinon elle n'est pas contrôlée.
+- Origine : lors de la mise en place d'Homewatch, ce contrôle a révélé qu'`uptime.maximelabatut.com` était resté **sans Access** (sa page de connexion Uptime Kuma était joignable de l'extérieur). L'oubli de l'étape « ajouter l'adresse aux destinations Access » ne se voit pas à l'usage, puisque l'application fonctionne quand même.
+
 ### Tester
 
 Ouvrir le site en navigation privée : email, code reçu par mail, code de l'application d'authentification, puis le service. Si le site s'affiche sans aucune demande de connexion, la destination n'est pas rattachée à l'application Access.
@@ -449,7 +511,7 @@ Ouvrir le site en navigation privée : email, code reçu par mail, code de l'app
 ## 0. Convention à respecter
 
 - Dossier du service : `~/docker/<nom-service>/html`
-- Port local : le prochain port libre (8080 = www, 8081 = gamevault, 8082 = web2, 8083 = dashboard (`config.`), 8084 = Dozzle (`logs.`), 8085 = Uptime Kuma (`uptime.`), 19999 = Netdata (réseau `host`), → 8086 pour le suivant, etc.)
+- Port local : le prochain port libre (8080 = www, 8081 = gamevault, 8082 = web2, 8083 = dashboard (`config.`), 8084 = Dozzle (`logs.`), 8085 = Uptime Kuma (`uptime.`), 8086 = Homewatch (privé), 19999 = Netdata (réseau `host`), → 8087 pour le suivant, etc.)
 - Sous-domaine : `<nom-service>.maximelabatut.com`
 - Nom du tunnel Cloudflare : un nom explicite (ex: `raspberry-<nom-service>`)
 - Nom de variable token dans `.env` : `CLOUDFLARE_TUNNEL_TOKEN_<NOM_SERVICE>` (en majuscules)
@@ -587,7 +649,7 @@ https://<nom-service>.maximelabatut.com
 
 ## 9. Ajouter l'application au dashboard
 
-Ajouter le nouveau service (et son tunnel) dans `APPS` et `DESCRIPTIONS` de `dashboard/html/index.html` (cf section « Ajouter une application au dashboard »). Si le sous-domaine donne accès à quelque chose de sensible (outil d'admin, métriques, logs), l'ajouter aussi aux destinations de l'application Cloudflare Access **avant** de l'utiliser.
+Ajouter le nouveau service (et son tunnel) dans `APPS` et `DESCRIPTIONS` de `dashboard/html/index.html` (cf section « Ajouter une application au dashboard ») **et** aux listes de `verifier-acces.sh` (cf. « Contrôle d'accès »). Si le sous-domaine donne accès à quelque chose de sensible (outil d'admin, métriques, logs), l'ajouter aussi aux destinations de l'application Cloudflare Access **avant** de l'utiliser.
 
 ---
 
