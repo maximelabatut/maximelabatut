@@ -303,7 +303,7 @@ Modifier les fichiers dans `~/Desktop/raspberrypi/GameVault`, les recopier dans 
 
 - `sauvegarder-pi.sh` prend un instantané cohérent de la base (`sqlite3 .backup`), le vérifie (`PRAGMA integrity_check`, nombre de jeux) et l'enregistre dans `~/Desktop/raspberrypi/gamevault-data.tgz` (environ 5 Mo pour ~2 500 jeux), avec le `.env` et les données d'Uptime Kuma. Version précédente en `.prev`. Le fichier `catalog.db` du dossier `GameVault` du Mac n'est **jamais écrasé** : il reste la copie de départ.
 - `restaurer-pi.sh` envoie le **code** (depuis le dossier `GameVault` du Mac) et `gamevault-data.tgz` ; `restore.sh` les déploie dans `~/docker/gamevault/app` et `~/docker/gamevault/data` avant le premier lancement.
-- Si le dossier `GameVault` du Mac est perdu, le code n'est nulle part ailleurs (il n'est pas dans le dépôt du homelab) : le versionner dans un dépôt **privé** est recommandé (le dépôt `github.com/maximelabatut/gamevault` est actuellement public).
+- Le code est aussi versionné dans le dépôt **privé** `github.com/maximelabatut/gamevault` (2 commits : la version d'origine, puis les adaptations Docker ; sans `catalog.db`, `run.bat` ni `.claude`). Ce dépôt doit rester **privé**. Le dossier `GameVault` du Mac reste la source utilisée par `restaurer-pi.sh` : après une modification du code, la reporter aussi dans le dépôt (`git add`, `commit`, `push`) et dans `/Volumes/docker/gamevault/app/`. En cas de perte du dossier du Mac, le code se récupère par `git clone https://github.com/maximelabatut/gamevault.git` (authentification GitHub requise, dépôt privé).
 
 ---
 
