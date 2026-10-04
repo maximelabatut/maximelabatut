@@ -38,7 +38,7 @@ Il enchaîne tout seul : envoi du `.env`, des données d'Uptime Kuma, de la clé
 
 ### 4. Homewatch : première connexion (carte neuve)
 
-Le jeton de session de Homewatch n'est pas exporté (il contient un mot de passe en clair) : après la restauration, refaire la connexion une fois, au terminal du Pi :
+Le jeton de session de Homewatch n'est pas exporté (c'est un accès au compte) : après la restauration, refaire la connexion une fois, au terminal du Pi :
 ```bash
 cd ~/docker && docker compose run --rm homewatch
 ```

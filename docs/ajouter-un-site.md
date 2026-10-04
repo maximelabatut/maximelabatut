@@ -432,8 +432,8 @@ cd ~/docker && docker compose up -d --build homewatch
 ### Sauvegarde et restauration
 
 - Le **code** est cloné par `restore.sh` avec la clé `homewatch-deploy-key` (envoyée par `restaurer-pi.sh`), comme pour GameVault.
-- Le **jeton de session n'est volontairement pas exporté** : le fichier contient le mot de passe du compte en clair, et une copie de plus sur le Mac (même en `600`) augmenterait inutilement l'exposition. Après une restauration, refaire la première connexion (`docker compose run --rm homewatch`, ~2 minutes) ; `restore.sh` le rappelle en fin d'exécution. Tant qu'elle n'est pas faite, le conteneur s'arrête avec un message explicite et redémarre en boucle sans rien exposer.
-- Sans jeton ni terminal, le conteneur échoue (code 2) plutôt que d'attendre une saisie.
+- Le fichier de session **ne contient que des jetons** (ni e-mail ni mot de passe, retirés à chaque écriture). Il n'est volontairement **pas exporté** : un jeton reste un accès au compte, et une copie de plus sur le Mac augmenterait inutilement l'exposition. Il ne peut pas être une valeur fixe dans `.env` : le jeton de renouvellement change à chaque usage et l'application l'enregistre elle-même. Après une restauration, refaire la première connexion (`docker compose run --rm homewatch`, ~2 minutes) ; `restore.sh` le rappelle en fin d'exécution. Tant qu'elle n'est pas faite, le conteneur s'arrête avec un message explicite et redémarre en boucle sans rien exposer.
+- Sans jeton valide ni terminal (jeton révoqué, très longue panne), le conteneur échoue (code 2) plutôt que d'attendre une saisie : relancer `docker compose run --rm homewatch`.
 
 ---
 
