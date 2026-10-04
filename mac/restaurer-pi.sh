@@ -273,7 +273,7 @@ ssh -t "${OPTS[@]}" "$HOST" "bash /tmp/restore.sh; rm -f /tmp/restore.sh" || tru
 # Après le redémarrage : attente du Pi, rapport de contrôle, connexion du compte caméra, partage Samba
 # ---------------------------------------------------------------------------------------------------------------------
 if [ "$HAVE_KEY" != 1 ]; then
-  echo "Clé SSH $SSHKEY.pub absente : rapport automatique ignoré. Attendre ~2 min puis suivre docs/restauration-pas-a-pas.md (tâches 15 à 19)."
+  echo "Clé SSH $SSHKEY.pub absente : rapport automatique ignoré. Attendre ~2 min puis suivre la documentation de restauration (tâches de fin de parcours)."
   exit 0
 fi
 KOPTS=(-i "$SSHKEY" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new -o BatchMode=yes -o ConnectTimeout=5)
@@ -285,7 +285,7 @@ for _ in $(seq 1 28); do
   if ssh "${KOPTS[@]}" "$HOST" true >/dev/null 2>&1; then UP=1; break; fi
   sleep 10
 done
-[ "$UP" = 1 ] || { echo "Le Pi ne répond pas par clé SSH. Vérifier à la main : ssh maxime@maxime.local (docs/restauration-pas-a-pas.md, tâches 14 et suivantes)."; exit 0; }
+[ "$UP" = 1 ] || { echo "Le Pi ne répond pas par clé SSH. Vérifier à la main : ssh maxime@maxime.local (documentation de restauration, étapes après le redémarrage)."; exit 0; }
 echo "Le Pi est de retour. Attente du démarrage des conteneurs (60 s)..."
 sleep 60
 
@@ -321,6 +321,6 @@ command -v open >/dev/null && open "smb://maxime@maxime.local/docker" >/dev/null
 
 echo
 echo "Restauration terminée. Reste à ta charge :"
-echo "  - durcissement SSH (docs/restauration-pas-a-pas.md, tâche 16 : ta clé est déjà installée sur le Pi, il ne reste que le test et le fichier de configuration)"
+echo "  - durcissement SSH (procédure de la documentation : ta clé est déjà installée sur le Pi, il ne reste que le test et le fichier de configuration)"
 echo "  - vérifier les sites protégés par Access dans le navigateur (e-mail + code + MFA)"
 echo "  - Finder : le partage smb://maxime.local/docker vient de s'ouvrir (mot de passe Samba choisi au début)"

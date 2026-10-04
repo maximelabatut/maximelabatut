@@ -196,22 +196,22 @@ const APPS = [
 ];
 
 const DESCRIPTIONS = {
-  'www': 'Serveur web nginx : sert le site www.maximelabatut.com (port 8080)',
+  'www': 'Serveur web nginx : sert le site www.maximelabatut.com',
   'www-status': 'Teste les sites toutes les 30 s et publie un statut public minimal (en ligne / hors ligne, uptime) pour la page d\'accueil',
   'cloudflared-www': 'Publie le site www sur Internet (aucun port ouvert sur la box)',
-  'gamevault': 'Application GameVault (page + serveur Python, base SQLite) : gamevault.maximelabatut.com, derrière Cloudflare Access (port 8081)',
+  'gamevault': 'Application GameVault (page + serveur Python, base SQLite) : gamevault.maximelabatut.com, derrière Cloudflare Access',
   'cloudflared-gamevault': 'Publie GameVault sur Internet',
-  'web2': 'Serveur web nginx : sert web2.maximelabatut.com (port 8082)',
+  'web2': 'Serveur web nginx : sert web2.maximelabatut.com',
   'cloudflared-web2': 'Publie web2 sur Internet',
-  'dashboard': 'Sert cette page et relaie l\'API de Netdata (port 8083)',
+  'dashboard': 'Sert cette page et relaie l\'API de Netdata',
   'dashboard-sync': 'Génère la liste des conteneurs (nom, ID) pour les liens vers Dozzle',
   'cloudflared-config': 'Publie le dashboard (config.maximelabatut.com)',
   'cloudflared-netdata': 'Publie Netdata (netdata.maximelabatut.com)',
   'netdata': 'Collecte les métriques du Pi : température, CPU, RAM, disque, réseau, conteneurs',
   'dozzle': 'Visionneuse de logs en direct de tous les conteneurs (lecture seule)',
   'cloudflared-logs': 'Publie Dozzle (logs.maximelabatut.com)',
-  'homewatch': 'Application privée (code cloné depuis un dépôt privé, derrière Cloudflare Access + MFA, port 8086)',
-  'cloudflared-homewatch': 'Publie Homewatch (homewatch.maximelabatut.com)',
+  'homewatch': 'Application privée (derrière Cloudflare Access + MFA)',
+  'cloudflared-homewatch': 'Publie l\'application privée',
   'uptime-kuma': 'Surveille les sites toutes les minutes et envoie une alerte sur le téléphone (ntfy) en cas de panne',
   'cloudflared-uptime': 'Publie Uptime Kuma (uptime.maximelabatut.com)'
 };

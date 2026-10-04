@@ -1,13 +1,13 @@
 # Restauration après changement de carte SD
 
-Tout est sur GitHub : le code et la configuration dans `github.com/maximelabatut/maximelabatut` (public), et les secrets (`.env`, bases de données, clés de déploiement) dans **une archive chiffrée par jour** du dépôt privé `github.com/maximelabatut/maximelabatut-backups` (30 jours conservés). Rien à refaire côté Cloudflare : les tunnels, Access et le MFA ne dépendent pas de la carte.
+Tout est sur GitHub : le code et la configuration dans `github.com/maximelabatut/maximelabatut` (public), et les secrets (`.env`, bases de données, clés de déploiement) dans **une archive chiffrée par jour** d'un dépôt GitHub privé de sauvegardes (30 jours conservés). Rien à refaire côté Cloudflare : les tunnels, Access et le MFA ne dépendent pas de la carte.
 
 **Ce qu'il faut avoir pour restaurer** (et rien d'autre) :
 1. l'accès à ton compte GitHub (pour télécharger l'archive)
-2. la clé SSH **`id_ed25519_homelab`** (fichier) et sa **phrase secrète**, dans le gestionnaire de mots de passe : sans elles, les archives sont illisibles pour toujours (le fichier de clé est lui-même chiffré par la phrase)
+2. la **clé de déchiffrement** (fichier de clé SSH `~/.ssh/id_ed25519_<nom>`) et sa **phrase secrète**, dans le gestionnaire de mots de passe : sans elles, les archives sont illisibles pour toujours (le fichier de clé est lui-même chiffré par la phrase)
 3. le mot de passe de l'utilisateur `maxime` choisi dans Imager (et un poste avec `bash`, `ssh`, `git` et `age` ; sur macOS 13, `brew install age` échoue : `go install filippo.io/age/cmd/age@v1.3.2`, cf. `ajouter-un-site.md`, « Installer `age` sur le Mac »)
 
-> **Version détaillée** : [`restauration-pas-a-pas.md`](restauration-pas-a-pas.md) découpe la restauration en 19 tâches, chacune avec son objectif, ses commandes, sa durée estimée et ce qui demande ton intervention.
+> La version détaillée, tâche par tâche (commandes exactes, durées, assistance requise), est conservée dans la documentation privée.
 
 ## Procédure rapide
 
@@ -30,7 +30,7 @@ git clone https://github.com/maximelabatut/maximelabatut.git ~/homelab-restore
 ~/homelab-restore/mac/restaurer-pi.sh
 ```
 
-Il clone la dernière archive du dépôt de sauvegardes **avec ta clé SSH** `id_ed25519_homelab` (enregistrée une fois comme *deploy key en lecture seule* de ce dépôt : aucun token ni identifiant GitHub). Repli : HTTPS (identifiants GitHub), ou télécharger le fichier `homelab-AAAA-MM-JJ.tar.gz.age` depuis la page GitHub du dépôt et le passer en argument : `~/homelab-restore/mac/restaurer-pi.sh ~/Downloads/homelab-AAAA-MM-JJ.tar.gz.age`.
+Il clone la dernière archive du dépôt de sauvegardes **avec ta clé SSH** (enregistrée une fois comme *deploy key en lecture seule* de ce dépôt : aucun token ni identifiant GitHub). Repli : HTTPS (identifiants GitHub), ou télécharger le fichier `homelab-AAAA-MM-JJ.tar.gz.age` depuis la page GitHub du dépôt et le passer en argument : `~/homelab-restore/mac/restaurer-pi.sh ~/Downloads/homelab-AAAA-MM-JJ.tar.gz.age`.
 
 **Toutes les saisies sont demandées au début**, puis le script enchaîne seul :
 1. la phrase secrète de la clé SSH (agent SSH, puis `age` pour déchiffrer)
@@ -40,7 +40,7 @@ Il clone la dernière archive du dépôt de sauvegardes **avec ta clé SSH** `id
 
 Il déchiffre l'archive, affiche son résumé et **contrôle qu'elle est restaurable** (fraîcheur, bases saines, tokens, clés de déploiement), puis enchaîne : envoi du `.env`, des données d'Uptime Kuma et de GameVault, des clés de déploiement et de la configuration de la sauvegarde quotidienne, mise à jour système, Docker, clone GitHub, `DOCKER_GID`, Samba, module Argon, `docker compose up -d`, redémarrage du Pi. Compter **20 à 30 minutes** (surtout de l'attente). Il peut être relancé sans risque. La sauvegarde quotidienne repart seule (timer systemd), avec les mêmes clés.
 
-Après le redémarrage, le script **attend le Pi**, affiche un **rapport** (conteneurs, température, contrôle d'accès, timer de sauvegarde), propose de **connecter le compte caméra** (code de vérification), ouvre le partage Samba dans Finder, et rappelle ce qui reste manuel (durcissement SSH, sites protégés par Access dans le navigateur).
+Après le redémarrage, le script **attend le Pi**, affiche un **rapport** (conteneurs, température, contrôle d'accès, timer de sauvegarde), propose de **refaire les connexions interactives** nécessaires (code de vérification), ouvre le partage Samba dans Finder, et rappelle ce qui reste manuel (durcissement SSH, sites protégés par Access dans le navigateur).
 
 **Tester à blanc, sans Pi** (à faire de temps en temps) : `~/homelab-restore/mac/restaurer-pi.sh --verifier`.
 
@@ -53,13 +53,13 @@ Après le redémarrage, le script **attend le Pi**, affiche un **rapport** (cont
 - Finder → `Cmd+K` → `smb://maxime.local/docker`
 - `vcgencmd get_throttled` → `throttled=0x0`
 
-### 4. Homewatch : première connexion (carte neuve)
+### 4. Connexion interactive d'une application (carte neuve)
 
-Le jeton de session de Homewatch n'est pas exporté (c'est un accès au compte) : après la restauration, refaire la connexion une fois, au terminal du Pi :
+Le jeton de session d'une application qui se connecte à un service tiers n'est volontairement pas sauvegardé (c'est un accès au compte) : après la restauration, refaire la connexion une fois, au terminal du Pi :
 ```bash
-cd ~/docker && docker compose run --rm homewatch
+cd ~/docker && docker compose run --rm <application>
 ```
-(e-mail, mot de passe, code de vérification ; Ctrl-C après « Connecté », puis `docker compose up -d homewatch`). Détails dans `ajouter-un-site.md`.
+(identifiants, code de vérification ; Ctrl-C une fois connecté, puis `docker compose up -d <application>`).
 
 ### 5. Réappliquer le durcissement SSH (carte neuve)
 
@@ -73,24 +73,24 @@ La carte fraîchement flashée accepte de nouveau les mots de passe. Une fois la
 |---|---|---|
 | `env` | les 8 tokens des tunnels Cloudflare | `restaurer-pi.sh` s'arrête. Les tokens se récupèrent un par un dans Cloudflare |
 | `uptime-kuma-data.tgz` | compte administrateur, sondes, notification ntfy | Uptime Kuma redemande l'installation (~10 min à refaire à la main) |
-| `gamevault-data.tgz` | la base GameVault (catalogue de jeux, wishlist) | GameVault repart avec une **base vide** : c'est la seule donnée irremplaçable du projet |
-| `gamevault-deploy-key`, `homewatch-deploy-key` | clés de déploiement (lecture seule) qui permettent de cloner les dépôts privés | le conteneur correspondant n'a pas de code et ne démarre pas |
+| `<application>-data.tgz` | les bases des applications personnelles | l'application repart avec une **base vide** : ce sont les seules données irremplaçables du projet |
+| `<application>-deploy-key` | clés de déploiement (lecture seule) qui permettent de cloner les dépôts privés | le conteneur correspondant n'a pas de code et ne démarre pas |
 | `homelab-backup/` | clé publique de chiffrement, clé d'écriture du dépôt de sauvegardes, URL Uptime Kuma | la sauvegarde quotidienne doit être reconfigurée (`sudo bash ~/docker/pi/install-backup.sh`) |
 | `MANIFEST.txt` | date et résumé, sans secret | rien d'important |
 
 **À garder hors de l'archive (indispensable, à toi de les conserver)** :
-- la clé SSH **`id_ed25519_homelab`** (fichier chiffré + phrase secrète) : dans le gestionnaire de mots de passe, avec une copie hors ligne. Elle sert à la fois à l'accès SSH et au déchiffrement. Perdue, toutes les sauvegardes sont définitivement illisibles ; volée avec sa phrase et l'accès au dépôt, toutes les sauvegardes sont lisibles
+- la **clé de déchiffrement** (fichier chiffré + phrase secrète) : dans le gestionnaire de mots de passe, avec une copie hors ligne. Perdue, toutes les sauvegardes sont définitivement illisibles ; compromise avec l'accès au dépôt, elles sont toutes lisibles
 - l'accès à ton compte GitHub (avec sa double authentification)
-- la clé SSH `~/.ssh/id_ed25519_homelab` et sa phrase secrète (Trousseau d'accès) : pas pour restaurer (une carte neuve accepte le mot de passe), mais pour réappliquer ensuite le durcissement SSH
+- la clé SSH d'administration et sa phrase secrète : pas pour restaurer (une carte neuve accepte le mot de passe), mais pour réappliquer ensuite le durcissement SSH
 - le dépôt `maximelabatut` doit rester **public** : `restore.sh` s'y clone sans identifiants
 - le mot de passe Samba et le nom du canal ntfy, dans le gestionnaire de mots de passe
-- Homewatch : le jeton de session n'est pas sauvegardé (c'est un accès au compte), d'où l'étape 4
+- les jetons de session des applications connectées à un service tiers ne sont pas sauvegardés (c'est un accès au compte), d'où l'étape 4
 
 **Rien n'est à garder sur le Mac** : il n'est plus dans la boucle. Le Pi sauvegarde lui-même, qu'il soit éteint ou non, et un nouveau poste peut restaurer avec les trois éléments ci-dessus.
 
 ## La sauvegarde quotidienne (côté Pi)
 
-`homelab-backup` tourne en root, chaque jour vers 03h30, lancé par un timer systemd (`Persistent=true` : si le Pi était éteint à cette heure, elle part au démarrage suivant). Il prend des instantanés **cohérents** des bases (SQLite `.backup`, qui tient compte du journal WAL : une simple copie de `kuma.db` perdrait les écritures récentes), **vérifie leur intégrité** (et la présence de tokens valides) avant toute chose, fabrique l'archive en mémoire, la **chiffre avec la clé publique de `id_ed25519_homelab`** (le Pi ne peut donc pas la relire), puis l'envoie sur GitHub en réécrivant l'historique (un seul commit, 30 archives : les plus anciennes disparaissent vraiment). Il vérifie ensuite que GitHub a bien reçu le commit, puis lance le contrôle d'exposition (Cloudflare Access).
+`homelab-backup` tourne en root, chaque jour vers 03h30, lancé par un timer systemd (`Persistent=true` : si le Pi était éteint à cette heure, elle part au démarrage suivant). Il prend des instantanés **cohérents** des bases (SQLite `.backup`, qui tient compte du journal WAL : une simple copie de `kuma.db` perdrait les écritures récentes), **vérifie leur intégrité** (et la présence de tokens valides) avant toute chose, fabrique l'archive en mémoire, la **chiffre avec la clé publique de `id_ed25519_<nom>`** (le Pi ne peut donc pas la relire), puis l'envoie sur GitHub en réécrivant l'historique (un seul commit, 30 archives : les plus anciennes disparaissent vraiment). Il vérifie ensuite que GitHub a bien reçu le commit, puis lance le contrôle d'exposition (Cloudflare Access).
 
 Suivi :
 ```bash
@@ -102,7 +102,7 @@ Alerte : un moniteur Uptime Kuma de type **Push** (intervalle 25 h) prévient pa
 
 **Tester la restauration sans toucher au Pi** (à refaire de temps en temps) : télécharger la dernière archive depuis GitHub puis, sur le Mac :
 ```bash
-age -d -i ~/.ssh/id_ed25519_homelab ~/Downloads/homelab-AAAA-MM-JJ.tar.gz.age | tar tzv      # demande la phrase secrète de la clé
+age -d -i ~/.ssh/id_ed25519_<nom> ~/Downloads/homelab-AAAA-MM-JJ.tar.gz.age | tar tzv      # demande la phrase secrète de la clé
 ```
 La liste doit montrer `env`, les deux `.tgz`, les clés de déploiement et `MANIFEST.txt`.
 
@@ -110,7 +110,7 @@ La liste doit montrer `env`, les deux `.tgz`, les clés de déploiement et `MANI
 |---|---|---|
 | Configuration | GitHub, à jour | `git status` et `git log origin/main..HEAD --oneline` sur le Pi doivent être vides |
 | Données et secrets | archive chiffrée du jour sur GitHub | automatique |
-| Clé SSH d'accès au Pi (+ phrase secrète) | `~/.ssh/id_ed25519_homelab`, phrase dans le Trousseau | copie du fichier et de la phrase dans le gestionnaire de mots de passe |
+| Clé SSH d'accès au Pi (+ phrase secrète) | `~/.ssh/id_ed25519_<nom>`, phrase dans le Trousseau | copie du fichier et de la phrase dans le gestionnaire de mots de passe |
 
 ## Procédure manuelle (si le script ne passe pas)
 
@@ -128,7 +128,7 @@ Se reconnecter (`ssh maxime@maxime.local`), puis :
 git clone https://github.com/maximelabatut/maximelabatut.git ~/docker
 mkdir -p ~/docker/www/html/data ~/docker/dashboard/data ~/docker/uptime-kuma/data
 ```
-Données d'Uptime Kuma (après avoir déchiffré l'archive : `mkdir ~/restore-tmp && age -d -i ~/.ssh/id_ed25519_homelab homelab-AAAA-MM-JJ.tar.gz.age | tar xzf - -C ~/restore-tmp`) : `scp ~/restore-tmp/uptime-kuma-data.tgz maxime@maxime.local:/tmp/` puis, sur le Pi, `tar xzf /tmp/uptime-kuma-data.tgz -C ~/docker/uptime-kuma/data` avant le premier `docker compose up -d`.
+Données d'Uptime Kuma (après avoir déchiffré l'archive : `mkdir ~/restore-tmp && age -d -i ~/.ssh/id_ed25519_<nom> homelab-AAAA-MM-JJ.tar.gz.age | tar xzf - -C ~/restore-tmp`) : `scp ~/restore-tmp/uptime-kuma-data.tgz maxime@maxime.local:/tmp/` puis, sur le Pi, `tar xzf /tmp/uptime-kuma-data.tgz -C ~/docker/uptime-kuma/data` avant le premier `docker compose up -d`.
 
 (repo privé : d'abord `sudo apt install -y gh && gh auth login`). Sur le Mac :
 ```bash

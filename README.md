@@ -177,7 +177,7 @@ git clone https://github.com/maximelabatut/maximelabatut.git ~/homelab-restore
 ~/homelab-restore/mac/restaurer-pi.sh
 ```
 
-Détails : [`docs/restauration-pas-a-pas.md`](docs/restauration-pas-a-pas.md) (tâche par tâche) et [`docs/restauration-carte-sd.md`](docs/restauration-carte-sd.md) (procédure manuelle, dépannage).
+Détails : [`docs/restauration-carte-sd.md`](docs/restauration-carte-sd.md) (procédure, procédure manuelle, dépannage).
 
 ## Documentation
 
@@ -185,7 +185,6 @@ Détails : [`docs/restauration-pas-a-pas.md`](docs/restauration-pas-a-pas.md) (t
 |---|---|
 | [`docs/ajouter-un-site.md`](docs/ajouter-un-site.md) | Ajouter une application de bout en bout (conteneur, tunnel, DNS, Access), monitoring, dépannage |
 | [`docs/restauration-carte-sd.md`](docs/restauration-carte-sd.md) | Restauration complète après changement de carte SD |
-| [`docs/restauration-pas-a-pas.md`](docs/restauration-pas-a-pas.md) | La même restauration en 19 tâches : qui agit, durée, commandes et dépannage de chacune |
 
 ---
 
