@@ -210,6 +210,19 @@ Sans l'étape 1, les conteneurs apparaissent quand même, dans le tiroir « Autr
 
 Un tunnel Cloudflare par sous-domaine, chacun avec son token dans `.env` (`CLOUDFLARE_TUNNEL_TOKEN_<APPLICATION>`) et son conteneur `cloudflared-<application>`. Chaque route (Published application routes) associe un hostname à `http://localhost:<port>`, le port étant celui publié par le conteneur dans `docker-compose.yml`.
 
+### Mettre à jour cloudflared
+
+L'image `cloudflare/cloudflared:latest` n'est pas épinglée : elle **ne se met pas à jour toute seule**. Cloudflare signale chaque jour (vers 20:53) dans les journaux des tunnels `Your version X is outdated. We recommend upgrading it to Y`. Dernière mise à jour : 9 oct. 2026 (2026.9.1 → 2026.10.0), sans incident. Procédure, avec ~10 s de coupure par tunnel :
+
+```bash
+cd ~/docker
+docker pull cloudflare/cloudflared:latest
+docker compose up -d --no-deps cloudflared-netdata      # un tunnel à la fois, service nommé explicitement
+docker logs cloudflared-netdata | grep -c "Registered tunnel connection"   # attendre >= 2, puis passer au suivant
+```
+
+Répéter pour chaque service `cloudflared-*` en cours d'exécution, des moins critiques aux plus critiques (le site public et les applications en dernier), et **s'arrêter au premier tunnel qui ne s'enregistre pas**. Ne jamais lancer `docker compose up -d` sans nom de service : il peut arrêter les services à la demande (profil `logs`). `cloudflared-logs` (à la demande) n'est pas recréé et garde l'ancienne image jusqu'à sa prochaine recréation. Vérifications : `docker exec cloudflared-www cloudflared --version`, puis le code HTTP des URL publiques (200 pour les sites publics, 302 vers Access pour les applications protégées).
+
 ### Modifier le dashboard
 
 Éditer `dashboard/html/index.html` directement via le partage Samba (`/Volumes/docker/dashboard/html/`) : nginx le sert en lecture seule à chaud, un simple rechargement de la page suffit (si le navigateur garde l'ancienne version : `Cmd+Maj+R`). Une modification de `nginx.conf` demande `docker compose restart dashboard`, une modification de `sync.sh` demande `docker compose restart dashboard-sync`.
