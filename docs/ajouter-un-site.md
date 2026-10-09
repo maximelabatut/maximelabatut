@@ -118,6 +118,18 @@ sudo journalctl --flush        # indispensable : le redémarrage seul ne bascule
 
 Un fichier qui se trie **après** `40-` l'emporte : `systemd-analyze cat-config systemd/journald.conf` montre l'ordre et la valeur effective. Vérification : `ls /var/log/journal/*/` liste des fichiers `.journal`, `journalctl --disk-usage` reste sous 100 Mo, et `journalctl --list-boots` affiche plusieurs démarrages après le prochain redémarrage (`journalctl -b -1` pour relire le précédent). Le plafond de 100 Mo limite l'usure de la carte SD.
 
+### Cgroup mémoire activé (9 octobre 2026)
+
+Sur Raspberry Pi OS le firmware ajoute `cgroup_disable=memory` à la ligne de commande du noyau : `docker stats` affichait `0B` et Netdata n'avait aucun graphique de mémoire par conteneur, ce qui empêchait d'attribuer une hausse de RAM à un service. Activation (hors dépôt : configuration du démarrage, à refaire après une réinstallation de la carte SD) :
+
+```bash
+sudo cp /boot/firmware/cmdline.txt /boot/firmware/cmdline.txt.bak
+sudo sed -i '1 s/$/ cgroup_enable=memory cgroup_memory=1/' /boot/firmware/cmdline.txt   # le fichier doit rester sur UNE seule ligne
+sudo reboot
+```
+
+Vérification : `cat /sys/fs/cgroup/cgroup.controllers` contient `memory`, `docker stats --no-stream` affiche la mémoire de chaque conteneur, et Netdata expose `cgroup_<conteneur>.mem`. En cas de problème au démarrage, restaurer `cmdline.txt.bak` depuis la partition `bootfs` de la carte SD, branchée sur le Mac. Ordres de grandeur juste après le démarrage : Netdata ~125 Mo, Uptime Kuma ~95 Mo, Homewatch ~50 Mo, chaque tunnel ~17 Mo (celui de Netdata ~40 Mo), le reste sous ~35 Mo. Pour repérer une fuite, comparer ces valeurs après plusieurs jours.
+
 ## Durcissement SSH (connexion par clé uniquement)
 
 SSH n'est atteignable que depuis le réseau local (aucun port n'est redirigé sur la box) et n'accepte que l'authentification par **clé** (ed25519, protégée par une phrase secrète) : mots de passe et connexion `root` désactivés. Fail2ban devient inutile (aucun mot de passe à deviner).
@@ -267,7 +279,7 @@ Config versionnée dans le repo et montée en lecture seule dans le conteneur `n
 | `netdata/netdata.conf` | `[plugins] scripts.d, otel, netflow, network-viewer, systemd-journal, systemd-units, ioping, perf, charts.d, python.d, tc, statsd = no` | extensions inutilisées désactivées (4 oct. 2026) : 14 → 4 processus, ~345 → ~205 Mo de RAM. **À conserver activées : `proc`, `cgroups`, `diskspace`, `go.d` et `debugfs`** (cette dernière fournit la température du CPU lue par le dashboard) |
 | `netdata/go.d/docker.conf` | job `local`, `update_every: 60`, `collect_container_size: no` | collecteur Docker ralenti (voir ci-dessous). Le nom `local` doit rester : le dashboard lit les graphiques `docker_local.*` |
 
-Après modification d'un de ces fichiers : `docker restart netdata`. Juste après un (re)démarrage, Netdata journalise une rafale d'une trentaine d'avertissements `SPAWN SERVER ... cgroup-network-helper.sh` pendant ~2 s (son assistant réseau échoue une fois par conteneur en réseau `host`, qui n'a pas d'interface propre) : normal, il n'y en a plus ensuite.
+Après modification d'un de ces fichiers : `docker restart netdata`. Après chaque redémarrage de Netdata, les cartes du dashboard affichent « inconnu » pendant ~2 à 3 minutes (le collecteur Docker, à 60 s, attend son premier échantillon) : normal. Juste après un (re)démarrage, Netdata journalise une rafale d'une trentaine d'avertissements `SPAWN SERVER ... cgroup-network-helper.sh` pendant ~2 s (son assistant réseau échoue une fois par conteneur en réseau `host`, qui n'a pas d'interface propre) : normal, il n'y en a plus ensuite.
 
 **Diagnostic (3 oct. 2026)** : le Pi tournait à ~25 % de CPU (4 cœurs) alors que la somme des conteneurs ne dépassait pas ~8 % d'un cœur. En réalité `dockerd` et `containerd` consommaient chacun ~42 % d'un cœur, en dehors de tout conteneur. Dozzle arrêté n'a rien changé ; Netdata arrêté a fait passer `dockerd` de ~29 % à ~3-6 % : c'est son collecteur Docker (une interrogation de l'API toutes les 2 s) qui sollicitait le démon, d'où le passage à 10 s.
 
