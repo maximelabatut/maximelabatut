@@ -105,6 +105,19 @@ sudo systemctl enable docker
 
 ---
 
+### Journal système persistant (9 octobre 2026)
+
+Raspberry Pi OS livre `/usr/lib/systemd/journald.conf.d/40-rpi-volatile-storage.conf` (`Storage=volatile`, pour ménager la carte SD) : le journal systemd vit en mémoire et **disparaît à chaque redémarrage**, ce qui empêche de diagnostiquer un incident après coup. Réglage ajouté (hors dépôt : configuration système, à refaire après une réinstallation de la carte SD) :
+
+```bash
+sudo mkdir -p /etc/systemd/journald.conf.d
+printf '[Journal]\nStorage=persistent\nSystemMaxUse=100M\n' | sudo tee /etc/systemd/journald.conf.d/50-persistent.conf
+sudo systemctl restart systemd-journald
+sudo journalctl --flush        # indispensable : le redémarrage seul ne bascule pas le journal courant sur le disque
+```
+
+Un fichier qui se trie **après** `40-` l'emporte : `systemd-analyze cat-config systemd/journald.conf` montre l'ordre et la valeur effective. Vérification : `ls /var/log/journal/*/` liste des fichiers `.journal`, `journalctl --disk-usage` reste sous 100 Mo, et `journalctl --list-boots` affiche plusieurs démarrages après le prochain redémarrage (`journalctl -b -1` pour relire le précédent). Le plafond de 100 Mo limite l'usure de la carte SD.
+
 ## Durcissement SSH (connexion par clé uniquement)
 
 SSH n'est atteignable que depuis le réseau local (aucun port n'est redirigé sur la box) et n'accepte que l'authentification par **clé** (ed25519, protégée par une phrase secrète) : mots de passe et connexion `root` désactivés. Fail2ban devient inutile (aucun mot de passe à deviner).
