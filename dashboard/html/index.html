@@ -450,7 +450,7 @@ async function updateContainers() {
   await loadMeta().catch(() => {});
   const rows = await Promise.all(names.map(async name => {
     const [st, cpu] = await Promise.allSettled([
-      latest('docker_local.container_' + name + '_state', 20),
+      latest('docker_local.container_' + name + '_state', 70),   // collecte Docker de Netdata toutes les 60 s : fenêtre > 60 s
       latest('cgroup_' + name + '.cpu')
     ]);
     return {
