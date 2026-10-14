@@ -65,6 +65,10 @@ cd ~/docker && docker compose run --rm <application>
 
 La carte fraîchement flashée accepte de nouveau les mots de passe. Une fois la restauration terminée, refaire la procédure « Mise en place » de la section « Durcissement SSH » de `docs/ajouter-un-site.md` (étapes 2 à 5 : `ssh-copy-id`, test par clé, `00-hardening.conf`, contrôle).
 
+### Rattacher un disque de stockage USB (si tu en as un)
+
+Un disque USB partagé en SMB n'est pas dans l'archive : ses fichiers sont sur le disque. Après la restauration, brancher le disque (sous tension), puis sur le Pi : `sudo bash ~/docker/pi/preparer-disque.sh`. Sans argument, le script **ne formate jamais** : il retrouve la partition d'étiquette `stockage`, la monte dans `/srv/stockage` et recrée le partage Samba `Stockage`. (Avec `/dev/sdX` en argument, il prépare un disque **neuf** et l'**efface** : à ne jamais utiliser sur un disque qui contient des données.)
+
 ## Ce qui protège quoi
 
 **Dans l'archive chiffrée** (`homelab-AAAA-MM-JJ.tar.gz.age`, une par jour, 30 conservées, sauvegarde faite par le Pi lui-même) :

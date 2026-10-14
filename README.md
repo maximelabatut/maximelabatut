@@ -139,7 +139,7 @@ Traits pleins : flux de service. Pointillés : signaux optionnels et restauratio
 ├── netdata/                # configuration de Netdata
 ├── argon/                  # courbe du ventilateur du boîtier Argon ONE
 ├── restore.sh              # restauration complète, exécutée sur le Pi
-├── pi/                     # sauvegarde quotidienne chiffrée (timer systemd) et contrôle d'exposition
+├── pi/                     # sauvegarde quotidienne chiffrée (timer systemd), contrôle d'exposition, disque de stockage USB (preparer-disque.sh)
 ├── mac/                    # restauration, lancée depuis le Mac
 └── docs/                   # documentation détaillée
 ```
