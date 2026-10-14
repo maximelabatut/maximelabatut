@@ -175,6 +175,33 @@ services:
       - /run/hls:uid=1000,gid=1000,size=256m
       - /tmp
 
+  # JDownloader 2 (interface web noVNC). Exposé UNIQUEMENT sur 127.0.0.1 (aucun tunnel Cloudflare) : accès par
+  # `ssh -L 5800:127.0.0.1:8088 maxime@maxime.local` puis http://localhost:5800. Les téléchargements vont sur le disque de stockage ;
+  # si celui-ci n'est pas monté, le conteneur ne démarre pas (create_host_path: false) au lieu d'écrire sur la carte SD.
+  # Java : tas limité à 640 Mo, conteneur à 1 Go.
+  jdownloader:
+    image: jlesage/jdownloader-2:latest
+    container_name: jdownloader
+    logging: *default-logging
+    restart: unless-stopped
+    mem_limit: 1g
+    environment:
+      - USER_ID=1000
+      - GROUP_ID=100
+      - TZ=Europe/Paris
+      - JDOWNLOADER_MAX_MEM=640M
+      - DARK_MODE=1
+      - KEEP_APP_RUNNING=1
+    ports:
+      - "127.0.0.1:8088:5800"
+    volumes:
+      - ./jdownloader/config:/config
+      - type: bind
+        source: /srv/stockage/telechargements
+        target: /output
+        bind:
+          create_host_path: false
+
   cloudflared-www:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-www
