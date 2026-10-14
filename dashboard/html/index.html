@@ -207,6 +207,8 @@ const APPS = [
   { id: 'dozzle', category: 'tech', name: 'Logs (Dozzle)', url: 'https://logs.maximelabatut.com', members: ['dozzle', 'cloudflared-logs', 'logs-control'], onDemand: true, demandMembers: ['dozzle', 'cloudflared-logs'], control: 'logs',
     note: 'Service à la demande : démarré avec le bouton ci-dessous pour lire des logs, arrêté automatiquement ensuite. Arrêté, ce tiroir est neutre et les liens vers les logs sont désactivés.' },
   { id: 'homewatch', category: 'main', name: 'Homewatch', url: 'https://homewatch.maximelabatut.com', members: ['homewatch', 'cloudflared-homewatch'] },
+  { id: 'jdownloader', category: 'main', name: 'JDownloader', url: null, members: ['jdownloader'],
+    note: 'Gestionnaire de téléchargements : pas d\'adresse publique, accès local uniquement (tunnel SSH). Les fichiers vont sur le disque de stockage.' },
   { id: 'uptime', category: 'tech', name: 'Uptime Kuma', url: 'https://uptime.maximelabatut.com', members: ['uptime-kuma', 'cloudflared-uptime'] }
 ];
 
@@ -228,6 +230,7 @@ const DESCRIPTIONS = {
   'logs-control': 'Démarre et arrête Dozzle et son tunnel (bouton de ce tiroir) ; arrêt automatique après la durée prévue',
   'homewatch': 'Application privée (derrière Cloudflare Access + MFA)',
   'cloudflared-homewatch': 'Publie l\'application privée',
+  'jdownloader': 'Gestionnaire de téléchargements JDownloader 2 (interface web locale), enregistre sur le disque de stockage',
   'uptime-kuma': 'Surveille les sites toutes les minutes et envoie une alerte sur le téléphone (ntfy) en cas de panne',
   'cloudflared-uptime': 'Publie Uptime Kuma (uptime.maximelabatut.com)'
 };
