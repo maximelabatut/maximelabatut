@@ -194,6 +194,7 @@ services:
       - KEEP_APP_RUNNING=1
     ports:
       - "127.0.0.1:8088:5800"
+      - "9666:9666"   # Click'n'Load (bouton Télécharger de GameVault)
     volumes:
       - ./jdownloader/config:/config
       - type: bind
@@ -217,6 +218,27 @@ services:
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_GAMEVAULT}
+
+  # Salle de jeux (games.maximelabatut.com) : page d'accueil + un dossier par jeu (statique, nginx).
+  # Exposé uniquement sur 127.0.0.1 : on n'y accède que par le tunnel cloudflared-games.
+  games:
+    image: nginx:alpine
+    container_name: games
+    logging: *default-logging
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8089:80"
+    volumes:
+      - ./games/html:/usr/share/nginx/html:ro
+      - ./games/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+  cloudflared-games:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-games
+    logging: *default-logging
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_GAMES}
 
   cloudflared-web2:
     image: cloudflare/cloudflared:latest

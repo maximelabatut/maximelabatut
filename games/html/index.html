@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Salle de jeux</title>
+  <meta name="description" content="Petits jeux de salon à lancer dans le navigateur.">
+  <style>
+    :root {
+      --fond: #14161f;
+      --fond-2: #1d2030;
+      --carte: #262a3d;
+      --carte-survol: #2e3350;
+      --texte: #f3f1ea;
+      --discret: #a6a9bd;
+      --accent: #ffd23f;
+      --bord: #3a3f5c;
+    }
+    * { box-sizing: border-box; }
+    html { color-scheme: dark; }
+    body {
+      margin: 0; min-height: 100vh; color: var(--texte);
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: radial-gradient(1200px 600px at 50% -10%, var(--fond-2), var(--fond));
+    }
+    main { max-width: 1040px; margin: 0 auto; padding: 56px 16px 64px; }
+    header { text-align: center; margin-bottom: 40px; }
+    h1 { margin: 0 0 8px; font-size: clamp(30px, 6vw, 48px); letter-spacing: 0.01em; }
+    header p { margin: 0; color: var(--discret); font-size: clamp(15px, 2.4vw, 18px); }
+
+    .jeux { display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+
+    .jeu {
+      display: flex; flex-direction: column; text-decoration: none; color: inherit;
+      background: var(--carte); border: 1px solid var(--bord); border-radius: 16px; overflow: hidden;
+      transition: transform .15s ease, background .15s ease, border-color .15s ease;
+    }
+    .jeu:hover, .jeu:focus-visible { transform: translateY(-4px); background: var(--carte-survol); border-color: var(--accent); }
+    .jeu:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+
+    .vignette { display: grid; place-items: center; padding: 24px 20px; background: #9fd7f0; aspect-ratio: 16 / 9; }
+    .vignette img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
+    .infos { padding: 16px 18px 18px; display: grid; gap: 10px; }
+    .infos h2 { margin: 0; font-size: 20px; }
+    .infos p { margin: 0; color: var(--discret); font-size: 15px; line-height: 1.45; }
+    .etiquettes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+    .etiquettes span { font-size: 12.5px; padding: 3px 9px; border-radius: 999px; background: var(--fond); border: 1px solid var(--bord); color: var(--discret); }
+    .jouer { margin-top: 4px; font-weight: 700; color: var(--accent); }
+    .jouer::after { content: ' \2192'; }
+
+    .bientot { display: grid; place-items: center; text-align: center; padding: 32px 20px; min-height: 220px;
+      border: 2px dashed var(--bord); border-radius: 16px; color: var(--discret); font-size: 15px; }
+
+    footer { margin-top: 48px; text-align: center; color: var(--discret); font-size: 13px; }
+
+    @media (prefers-reduced-motion: reduce) { .jeu { transition: none; } .jeu:hover { transform: none; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Salle de jeux</h1>
+      <p>Choisis un jeu, branche les manettes, c'est parti.</p>
+    </header>
+
+    <section class="jeux" aria-label="Jeux disponibles">
+      <a class="jeu" href="gardenbrawl/">
+        <div class="vignette"><img src="gardenbrawl/logo.png" alt="" width="1200" height="392"></div>
+        <div class="infos">
+          <h2>Garden Brawl</h2>
+          <p>Deux équipes de voisins, une clôture au milieu : volez les nains du jardin d'en face, cassez ses objets, baffez, lancez vos coéquipiers.</p>
+          <div class="etiquettes"><span>2 à 4 joueurs</span><span>Même écran</span><span>Clavier ou manettes</span></div>
+          <div class="jouer">Jouer</div>
+        </div>
+      </a>
+
+      <div class="bientot">D'autres jeux arriveront ici.</div>
+    </section>
+
+    <footer>Fait maison, hébergé sur un Raspberry Pi.</footer>
+  </main>
+</body>
+</html>
