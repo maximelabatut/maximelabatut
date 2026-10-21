@@ -12,3 +12,5 @@ homewatch/data/
 __pycache__/
 jdownloader/config/
 games/html/gardenbrawl/
+games/manettes/serveur/
+games/manettes/manette/
