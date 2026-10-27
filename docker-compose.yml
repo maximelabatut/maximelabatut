@@ -253,6 +253,37 @@ services:
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_GAMES}
 
+  # Menu Futé (application privée, dépôt maximelabatut/menufute) : catalogue de recettes + fiches imprimables.
+  # Exposé uniquement sur 127.0.0.1 : accès par le tunnel cloudflared-menufute, derrière Cloudflare Access.
+  # Sources copiées dans ./menufute/app par mac/mettre-a-jour-menufute.sh ; base SQLite dans ./menufute/data (hors git).
+  menufute:
+    build:
+      context: ./menufute/app
+      dockerfile: ../Dockerfile
+    image: menufute:local
+    container_name: menufute
+    logging: *default-logging
+    restart: unless-stopped
+    mem_limit: 768m
+    ports:
+      - "127.0.0.1:8090:3000"
+    volumes:
+      - ./menufute/data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/sync/status').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  cloudflared-menufute:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-menufute
+    logging: *default-logging
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_MENUFUTE}
+
   cloudflared-web2:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-web2
