@@ -308,6 +308,17 @@ REMOTE
 echo "========================================="
 
 echo
+# Salle de jeux et Menu Futé : leur code vient de GitHub (hors du clone ~/docker), restore.sh ne les a donc pas démarrés.
+echo "Salle de jeux (Garden Brawl) et Menu Futé : le code est récupéré depuis GitHub puis construit sur le Pi."
+echo "Prérequis sur ce poste : node et npm ; pour Menu Futé (dépôt privé), tes identifiants GitHub habituels."
+read -r -p "Redéployer la salle de jeux et Menu Futé maintenant ? [O/n] " J
+if [ "${J:-O}" != n ] && [ "${J:-O}" != N ]; then
+  SSH_KEY_FILE="$SSHKEY" "$HERE/mettre-a-jour-jeux.sh" --force || echo "   Salle de jeux : échec. À relancer plus tard : mac/mettre-a-jour-jeux.sh --force"
+  SSH_KEY_FILE="$SSHKEY" "$HERE/mettre-a-jour-menufute.sh" --force || echo "   Menu Futé : échec. À relancer plus tard : mac/mettre-a-jour-menufute.sh --force"
+else
+  echo "Plus tard : mac/mettre-a-jour-jeux.sh --force  puis  mac/mettre-a-jour-menufute.sh --force"
+fi
+
 read -r -p "Connecter le compte caméra (Homewatch) maintenant ? Il faudra l'e-mail, le mot de passe et le code reçu. [O/n] " A
 if [ "${A:-O}" != n ] && [ "${A:-O}" != N ]; then
   echo "Quand la liste des caméras s'affiche (« Connecté »), appuie sur Ctrl-C : le script relance ensuite Homewatch."
@@ -323,4 +334,5 @@ echo
 echo "Restauration terminée. Reste à ta charge :"
 echo "  - durcissement SSH (procédure de la documentation : ta clé est déjà installée sur le Pi, il ne reste que le test et le fichier de configuration)"
 echo "  - vérifier les sites protégés par Access dans le navigateur (e-mail + code + MFA)"
+echo "  - Menu Futé : base vide après restauration, lancer la synchro du catalogue (roue crantée de l'application, environ 1 minute)"
 echo "  - Finder : le partage smb://maxime.local/docker vient de s'ouvrir (mot de passe Samba choisi au début)"

@@ -38,6 +38,9 @@ sudo usermod -aG docker "$USER"
 echo "== 3/7 Dépôt GitHub"
 [ -d "$HOME/docker/.git" ] || git clone "$REPO" "$HOME/docker"
 mkdir -p "$HOME/docker/www/html/data" "$HOME/docker/dashboard/data" "$HOME/docker/uptime-kuma/data" "$HOME/docker/gamevault/app" "$HOME/docker/gamevault/data" "$HOME/docker/homewatch/app" "$HOME/docker/homewatch/data"
+# Salle de jeux, Menu Futé, JDownloader : dossiers non versionnés (copies du code des jeux, base SQLite, configuration).
+# Créés ici pour appartenir à maxime : Docker les créerait sinon en root et les conteneurs ne pourraient pas y écrire.
+mkdir -p "$HOME/docker/games/html/gardenbrawl" "$HOME/docker/games/manettes/serveur" "$HOME/docker/games/manettes/manette" "$HOME/docker/menufute/app" "$HOME/docker/menufute/data" "$HOME/docker/jdownloader/config"
 # Clone d'un dépôt privé avec sa clé de déploiement (lecture seule), ou git pull s'il existe déjà.
 # Une clé par dépôt (GitHub n'accepte pas la même clé sur deux dépôts) : /tmp/<nom>-deploy-key, alias SSH github-<nom>.
 deploy_repo() {
@@ -145,7 +148,17 @@ sudo cp "$HOME/docker/argon/argononed.conf" /etc/argononed.conf
 
 echo "== 7/7 Conteneurs"
 cd "$HOME/docker"
-sg docker -c "docker compose up -d"
+# Les services construits depuis des sources NON versionnées (code des jeux, Menu Futé : dépôts hors de ce clone) ne peuvent pas être
+# construits sur une carte neuve. Un seul dossier de build absent fait échouer TOUT « docker compose up -d » (aucun conteneur ne
+# démarre) : on ne démarre donc ici que ce qui est constructible ; les jeux et Menu Futé sont redéployés ensuite depuis le Mac
+# (mac/mettre-a-jour-jeux.sh --force et mac/mettre-a-jour-menufute.sh --force, proposés par restaurer-pi.sh).
+SKIP=""
+[ -f games/manettes/serveur/serveur.js ] || SKIP="$SKIP gardenbrawl-manettes games"
+[ -f menufute/app/package.json ] || SKIP="$SKIP menufute"
+if [ -n "$SKIP" ]; then echo "   Sources absentes, non démarrés pour l'instant :$SKIP"; fi
+SERVICES="$(sg docker -c "docker compose config --services" | grep -vxF -f <(printf '%s\n' $SKIP) | tr '\n' ' ')"
+# Un conteneur qui échoue (ex. JDownloader sans disque de stockage) ne doit pas interrompre la fin de la restauration.
+sg docker -c "docker compose up -d $SERVICES" || echo "   ATTENTION : au moins un conteneur n'a pas démarré (voir « docker compose ps -a » ; JDownloader exige le disque de stockage monté)."
 # Dozzle et son tunnel sont « à la demande » : on les CRÉE sans les démarrer, pour que le bouton du dashboard puisse les lancer.
 sg docker -c "docker compose --profile logs up --no-start dozzle cloudflared-logs"
 sg docker -c "docker compose ps"
@@ -155,6 +168,11 @@ if [ ! -f "$HOME/docker/homewatch/data/auth_token.json" ]; then
   echo
   echo "Homewatch : première connexion à faire (code de vérification, une seule fois) :"
   echo "  cd ~/docker && docker compose run --rm homewatch"
+fi
+if [ -n "$SKIP" ]; then
+  echo
+  echo "Salle de jeux et Menu Futé : à redéployer depuis le Mac (le code vient de GitHub, pas de ce clone) :"
+  echo "  mac/mettre-a-jour-jeux.sh --force      et      mac/mettre-a-jour-menufute.sh --force"
 fi
 echo "Terminé. Redémarrage dans 10 s pour activer le ventilateur Argon (les conteneurs repartent seuls)."
 sleep 10

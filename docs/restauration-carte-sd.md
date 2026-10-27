@@ -69,13 +69,17 @@ La carte fraîchement flashée accepte de nouveau les mots de passe. Une fois la
 
 Un disque USB partagé en SMB n'est pas dans l'archive : ses fichiers sont sur le disque. Après la restauration, brancher le disque (sous tension), puis sur le Pi : `sudo bash ~/docker/pi/preparer-disque.sh`. Sans argument, le script **ne formate jamais** : il retrouve la partition d'étiquette `stockage`, la monte dans `/srv/stockage` et recrée le partage Samba `Stockage`. (Avec `/dev/sdX` en argument, il prépare un disque **neuf** et l'**efface** : à ne jamais utiliser sur un disque qui contient des données.)
 
+### 7. Applications dont le code est hors de ce dépôt
+
+Les applications construites depuis un autre dépôt (jeux, application privée) ne sont **pas** démarrées par `restore.sh` sur une carte neuve : leur code est absent du clone, et un seul dossier de build manquant ferait échouer tout `docker compose up -d`. Le script affiche la liste des services laissés de côté ; `restaurer-pi.sh` propose de les redéployer à la fin, ou à la main depuis le Mac avec les scripts `mac/mettre-a-jour-*.sh --force`. Leurs bases reconstructibles (catalogues) ne sont pas sauvegardées : on les resynchronise depuis l'application.
+
 ## Ce qui protège quoi
 
 **Dans l'archive chiffrée** (`homelab-AAAA-MM-JJ.tar.gz.age`, une par jour, 30 conservées, sauvegarde faite par le Pi lui-même) :
 
 | Contenu | Rôle | S'il manque |
 |---|---|---|
-| `env` | les 8 tokens des tunnels Cloudflare | `restaurer-pi.sh` s'arrête. Les tokens se récupèrent un par un dans Cloudflare |
+| `env` | les tokens des tunnels Cloudflare (un par application) | `restaurer-pi.sh` s'arrête. Les tokens se récupèrent un par un dans Cloudflare |
 | `uptime-kuma-data.tgz` | compte administrateur, sondes, notification ntfy | Uptime Kuma redemande l'installation (~10 min à refaire à la main) |
 | `<application>-data.tgz` | les bases des applications personnelles | l'application repart avec une **base vide** : ce sont les seules données irremplaçables du projet |
 | `<application>-deploy-key` | clés de déploiement (lecture seule) qui permettent de cloner les dépôts privés | le conteneur correspondant n'a pas de code et ne démarre pas |
@@ -146,7 +150,7 @@ sed -i -e '$a\' .env
 printf 'DOCKER_GID=%s\n' "$(getent group docker | cut -d: -f3)" >> .env
 awk -F= 'NF>1 {print $1, length($2)}' .env
 ```
-Contrôle : 8 tokens de 184 caractères et `DOCKER_GID 3`, chacun sur sa ligne. Puis Samba :
+Contrôle : un token de 184 caractères par tunnel et `DOCKER_GID 3`, chacun sur sa ligne. Puis Samba :
 ```bash
 sudo apt install -y samba samba-common-bin
 sudo tee -a /etc/samba/smb.conf > /dev/null <<'EOF'

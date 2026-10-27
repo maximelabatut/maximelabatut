@@ -15,6 +15,7 @@
 #   6. copie le jeu dans ~/docker/games/html/gardenbrawl/ ;
 #   7. vérifie le site public (fichier du jeu, page manette, /manette/sante).
 # Après la mise à jour : Cmd+Maj+R dans le navigateur pour contourner le cache.
+# Après une restauration de la carte SD (--force) : restaurer-pi.sh le propose ; SSH_KEY_FILE=… impose la clé SSH.
 set -euo pipefail
 
 HOST="${JEUX_HOST:-maxime@maxime.local}"
@@ -30,7 +31,7 @@ for arg in "$@"; do
   case "$arg" in
     --verifier) MODE=verifier ;;
     --force) MODE=force ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,/^set -euo/p' "$0" | sed '$d'; exit 0 ;;
     *) echo "Option inconnue : $arg (voir --help)" >&2; exit 2 ;;
   esac
 done
@@ -41,7 +42,11 @@ done
 
 ok() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 etape() { printf '\n\033[1m%s\033[0m\n' "$*"; }
-ssh_pi() { ssh -o ConnectTimeout=10 "$HOST" "$@"; }
+# Clé SSH explicite (utilisée par restaurer-pi.sh après une restauration) : SSH_KEY_FILE=~/.ssh/id_ed25519_homelab
+SSH_OPTS=(-o ConnectTimeout=10)
+if [ -n "${SSH_KEY_FILE:-}" ]; then SSH_OPTS+=(-i "$SSH_KEY_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new); fi
+export RSYNC_RSH="ssh ${SSH_OPTS[*]}"
+ssh_pi() { ssh "${SSH_OPTS[@]}" "$HOST" "$@"; }
 
 ssh_pi true 2>/dev/null || { echo "Le Pi ($HOST) ne répond pas en SSH." >&2; exit 1; }
 
@@ -105,7 +110,7 @@ ok "Build $BUNDLE (adresse des manettes incluse)"
 if [ "$MANETTES_HASH" != "$MANETTES_EN_LIGNE" ] || [ "$MODE" = force ]; then
   etape "4. Serveur de manettes (serveur/ ou manette/ ont changé)"
   rsync -a --delete --exclude node_modules serveur manette "$HOST:$DEST_MANETTES/"
-  ssh_pi "cd ~/docker && docker compose build gardenbrawl-manettes >/dev/null 2>&1 && docker compose up -d gardenbrawl-manettes >/dev/null 2>&1 && printf '%s\n' '$MANETTES_HASH' > ~/$DEST_MANETTES/.version"
+  ssh_pi "cd ~/docker && docker compose build gardenbrawl-manettes >/dev/null 2>&1 && docker compose up -d gardenbrawl-manettes games >/dev/null 2>&1 && printf '%s\n' '$MANETTES_HASH' > ~/$DEST_MANETTES/.version"
   sleep 3
   [ "$(ssh_pi "docker inspect -f '{{.State.Status}}' gardenbrawl-manettes")" = "running" ] \
     || { echo "gardenbrawl-manettes ne tourne pas après la mise à jour : voir « docker logs gardenbrawl-manettes »." >&2; exit 1; }

@@ -13,6 +13,7 @@
 #   4. copie uniquement ce qui sert à l'exécution (src/, public/, package*.json) dans ~/docker/menufute/app ;
 #   5. reconstruit l'image et relance le conteneur `menufute` (la base ~/docker/menufute/data n'est jamais touchée) ;
 #   6. attend que le conteneur soit « healthy » et vérifie /api/sync/status.
+# Après une restauration de la carte SD (--force) : restaurer-pi.sh le propose ; SSH_KEY_FILE=… impose la clé SSH.
 # La base (recettes) est dans ~/docker/menufute/data/recipes.db ; la synchro du catalogue se lance depuis l'application.
 set -euo pipefail
 
@@ -37,7 +38,11 @@ done
 
 ok() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
 etape() { printf '\n\033[1m%s\033[0m\n' "$*"; }
-ssh_pi() { ssh -o ConnectTimeout=10 "$HOST" "$@"; }
+# Clé SSH explicite (utilisée par restaurer-pi.sh après une restauration) : SSH_KEY_FILE=~/.ssh/id_ed25519_homelab
+SSH_OPTS=(-o ConnectTimeout=10)
+if [ -n "${SSH_KEY_FILE:-}" ]; then SSH_OPTS+=(-i "$SSH_KEY_FILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new); fi
+export RSYNC_RSH="ssh ${SSH_OPTS[*]}"
+ssh_pi() { ssh "${SSH_OPTS[@]}" "$HOST" "$@"; }
 
 ssh_pi true 2>/dev/null || { echo "Le Pi ($HOST) ne répond pas en SSH." >&2; exit 1; }
 
