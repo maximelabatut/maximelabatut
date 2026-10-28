@@ -12,10 +12,12 @@
 #   3. installe les dépendances et lance le contrôle de types `npm run typecheck` (le dépôt n'a pas de tests ;
 #      déploiement ANNULÉ si le contrôle échoue) ;
 #   4. copie uniquement ce qui sert à l'exécution (src/, public/, tsconfig.json, package*.json) dans ~/docker/cleaner/app ;
-#      JAMAIS le jumelage Matter (.matter-storage), le jeton (.api-token) ni mapper/ : ces secrets ne quittent pas leur machine ;
+#      et mapper/ (service de carte : server.py, requirements.txt) ;
+#      JAMAIS le jumelage Matter (.matter-storage), le jeton (.api-token) ni la session Roborock (~/.roborock) : ces secrets ne quittent pas leur machine ;
 #   5. reconstruit l'image ; ne (re)lance le conteneur `cleaner` QUE si le jumelage Matter existe sur le Pi
 #      (~/docker/cleaner/matter-storage non vide) : sans appareil jumelé le serveur s'arrête aussitôt ;
-#   6. attend que le conteneur soit « healthy » (la connexion à l'aspirateur peut prendre une minute).
+#      Le service de carte `cleaner-mapper` ne démarre que si la session du compte Roborock existe (~/docker/cleaner/roborock-home/.roborock) ;
+#   6. attend que les conteneurs soient « healthy » (la connexion à l'aspirateur peut prendre une minute).
 # Après une restauration de la carte SD (--force) : restaurer-pi.sh le propose ; SSH_KEY_FILE=… impose la clé SSH.
 set -euo pipefail
 
@@ -87,11 +89,12 @@ ok "typecheck (tsc --noEmit) : aucune erreur"
 
 etape "3. Copie des sources sur le Pi"
 rsync -a --delete package.json package-lock.json tsconfig.json src public "$HOST:$DEST/app/"
-ok "copié dans ~/$DEST/app/ (src, public, tsconfig.json, package*.json ; aucun secret)"
+rsync -a --delete --exclude .venv --exclude map.png --exclude .gitignore mapper/ "$HOST:$DEST/app/mapper/"
+ok "copié dans ~/$DEST/app/ (src, public, mapper, tsconfig.json, package*.json ; aucun secret)"
 
-etape "4. Construction de l'image"
-ssh_pi "cd ~/docker && docker compose build cleaner 2>&1 | tail -3"
-ok "image cleaner:local construite"
+etape "4. Construction des images"
+ssh_pi "cd ~/docker && docker compose build cleaner cleaner-mapper 2>&1 | tail -3"
+ok "images cleaner:local et cleaner-mapper:local construites"
 
 JUMELE="$(ssh_pi "[ -n \"\$(ls -A ~/$DEST/matter-storage 2>/dev/null)\" ] && echo oui || echo non")"
 if [ "$JUMELE" != oui ]; then
@@ -107,13 +110,23 @@ fi
 
 etape "5. Relance et vérification"
 ssh_pi "cd ~/docker && docker compose up -d cleaner 2>&1 | tail -2"
-for i in $(seq 1 50); do
-  etat="$(ssh_pi "docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' cleaner" 2>/dev/null || true)"
-  [ "$etat" = "healthy" ] && break
-  sleep 4
+SERVICES="cleaner"
+SESSION="$(ssh_pi "[ -f ~/$DEST/roborock-home/.roborock ] && echo oui || echo non")"
+if [ "$SESSION" = oui ]; then
+  ssh_pi "cd ~/docker && docker compose up -d cleaner-mapper 2>&1 | tail -2"
+  SERVICES="cleaner cleaner-mapper"
+else
+  echo "  (plan de la maison : session Roborock absente, cleaner-mapper non démarré ; connexion : voir ajouter-un-site.md)"
+fi
+for svc in $SERVICES; do
+  for i in $(seq 1 50); do
+    etat="$(ssh_pi "docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' $svc" 2>/dev/null || true)"
+    [ "$etat" = "healthy" ] && break
+    sleep 4
+  done
+  [ "$etat" = "healthy" ] || { echo "Le conteneur $svc n'est pas « healthy » (état : $etat) : voir « docker logs $svc »." >&2; exit 1; }
+  ok "conteneur $svc : healthy"
 done
-[ "$etat" = "healthy" ] || { echo "Le conteneur cleaner n'est pas « healthy » (état : $etat) : voir « docker logs cleaner »." >&2; exit 1; }
-ok "conteneur cleaner : healthy"
 ssh_pi "printf '%s\n' '$COMMIT' > ~/$DEST/.version"
 
 echo; echo "Roborock Cleaner est à jour : $COMMIT — $SUJET"

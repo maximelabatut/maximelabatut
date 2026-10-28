@@ -40,8 +40,8 @@ echo "== 3/7 Dépôt GitHub"
 mkdir -p "$HOME/docker/www/html/data" "$HOME/docker/dashboard/data" "$HOME/docker/uptime-kuma/data" "$HOME/docker/gamevault/app" "$HOME/docker/gamevault/data" "$HOME/docker/homewatch/app" "$HOME/docker/homewatch/data"
 # Salle de jeux, Menu Futé, JDownloader : dossiers non versionnés (copies du code des jeux, base SQLite, configuration).
 # Créés ici pour appartenir à maxime : Docker les créerait sinon en root et les conteneurs ne pourraient pas y écrire.
-mkdir -p "$HOME/docker/games/html/gardenbrawl" "$HOME/docker/games/manettes/serveur" "$HOME/docker/games/manettes/manette" "$HOME/docker/menufute/app" "$HOME/docker/menufute/data" "$HOME/docker/jdownloader/config" "$HOME/docker/cleaner/app" "$HOME/docker/cleaner/matter-storage"
-chmod 700 "$HOME/docker/cleaner/matter-storage"   # jumelage Matter du contrôleur (secret, non sauvegardé)
+mkdir -p "$HOME/docker/games/html/gardenbrawl" "$HOME/docker/games/manettes/serveur" "$HOME/docker/games/manettes/manette" "$HOME/docker/menufute/app" "$HOME/docker/menufute/data" "$HOME/docker/jdownloader/config" "$HOME/docker/cleaner/app" "$HOME/docker/cleaner/matter-storage" "$HOME/docker/cleaner/roborock-home"
+chmod 700 "$HOME/docker/cleaner/matter-storage" "$HOME/docker/cleaner/roborock-home"   # jumelage Matter et session Roborock (secrets, non sauvegardés)
 # Clone d'un dépôt privé avec sa clé de déploiement (lecture seule), ou git pull s'il existe déjà.
 # Une clé par dépôt (GitHub n'accepte pas la même clé sur deux dépôts) : /tmp/<nom>-deploy-key, alias SSH github-<nom>.
 deploy_repo() {
@@ -158,6 +158,8 @@ SKIP=""
 [ -f menufute/app/package.json ] || SKIP="$SKIP menufute"
 # Roborock Cleaner : sources absentes ET jumelage Matter absent (non sauvegardé) : démarré seulement après mac/mettre-a-jour-cleaner.sh et le jumelage.
 [ -f cleaner/app/package.json ] && [ -n "$(ls -A cleaner/matter-storage 2>/dev/null)" ] || SKIP="$SKIP cleaner"
+# Plan de la maison : sources ET session du compte Roborock (`roborock login`, non sauvegardée) requises.
+[ -f cleaner/app/mapper/server.py ] && [ -f cleaner/roborock-home/.roborock ] || SKIP="$SKIP cleaner-mapper"
 if [ -n "$SKIP" ]; then echo "   Sources absentes, non démarrés pour l'instant :$SKIP"; fi
 SERVICES="$(sg docker -c "docker compose config --services" | grep -vxF -f <(printf '%s\n' $SKIP) | tr '\n' ' ')"
 # Un conteneur qui échoue (ex. JDownloader sans disque de stockage) ne doit pas interrompre la fin de la restauration.
@@ -178,6 +180,8 @@ if [ -n "$SKIP" ]; then
   echo "  mac/mettre-a-jour-jeux.sh --force      et      mac/mettre-a-jour-menufute.sh --force"
   echo "Roborock Cleaner : mac/mettre-a-jour-cleaner.sh --force, puis REJUMELER l'aspirateur (le jumelage Matter n'est pas sauvegardé) :"
   echo "  cd ~/docker && docker compose run --rm cleaner npm run pair -- <code>   puis   docker compose up -d cleaner"
+  echo "Plan de la maison (optionnel) : se reconnecter au compte Roborock (la session n'est pas sauvegardée) :"
+  echo "  cd ~/docker && docker compose run --rm cleaner-mapper roborock login --email <ton e-mail Roborock>   puis   docker compose up -d cleaner-mapper"
 fi
 echo "Terminé. Redémarrage dans 10 s pour activer le ventilateur Argon (les conteneurs repartent seuls)."
 sleep 10

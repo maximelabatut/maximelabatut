@@ -320,6 +320,30 @@ services:
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_CLEANER}
 
+  # Roborock Cleaner, plan de la maison (optionnel) : service Python sur 127.0.0.1:3001, relayé par `cleaner` (MAPPER_URL par défaut).
+  # Demande une connexion au compte Roborock (voir ajouter-un-site.md) : `docker compose run --rm cleaner-mapper roborock login --email …`.
+  # La session (secret) est dans ./cleaner/roborock-home (hors git, non sauvegardée).
+  cleaner-mapper:
+    build:
+      context: ./cleaner/app
+      dockerfile: ../Dockerfile.mapper
+    image: cleaner-mapper:local
+    container_name: cleaner-mapper
+    logging: *default-logging
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 256m
+    environment:
+      - MAPPER_PORT=3001
+    volumes:
+      - ./cleaner/roborock-home:/home/app
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('127.0.0.1', 3001), 3).close()"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   cloudflared-web2:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-web2

@@ -1,0 +1,12 @@
+# Roborock Cleaner : service de carte (Python 3.11 + python-roborock + numpy), optionnel. Même contexte de build que `cleaner` (./cleaner/app).
+# La session du compte Roborock (SECRET : ~/.roborock et ~/.roborock.cache, créés par `roborock login`) n'est jamais dans l'image :
+# elle est dans le volume ./cleaner/roborock-home monté sur /home/app (hors git, non sauvegardé).
+FROM python:3.11-slim
+RUN useradd --create-home --uid 1000 app
+WORKDIR /app
+COPY mapper/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+COPY mapper/server.py ./
+USER app
+ENV HOME=/home/app MAPPER_PORT=3001 PYTHONUNBUFFERED=1
+CMD ["python", "server.py"]

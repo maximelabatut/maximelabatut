@@ -335,6 +335,6 @@ echo
 echo "Restauration terminée. Reste à ta charge :"
 echo "  - durcissement SSH (procédure de la documentation : ta clé est déjà installée sur le Pi, il ne reste que le test et le fichier de configuration)"
 echo "  - vérifier les sites protégés par Access dans le navigateur (e-mail + code + MFA)"
-echo "  - Roborock Cleaner : rejumeler l'aspirateur (le jumelage Matter n'est pas sauvegardé) : Apple Maison > accessoire > Réglages > mode de jumelage, puis sur le Pi : cd ~/docker && docker compose run --rm cleaner npm run pair -- <code> && docker compose up -d cleaner"
+echo "  - Roborock Cleaner : rejumeler l'aspirateur (le jumelage Matter n'est pas sauvegardé) : Apple Maison > accessoire > Réglages > mode de jumelage, puis sur le Pi : cd ~/docker && docker compose run --rm cleaner npm run pair -- <code> && docker compose up -d cleaner ; plan de la maison : docker compose run --rm cleaner-mapper roborock login --email <e-mail Roborock> && docker compose up -d cleaner-mapper"
 echo "  - Menu Futé : base vide après restauration, lancer la synchro du catalogue (roue crantée de l'application, environ 1 minute)"
 echo "  - Finder : le partage smb://maxime.local/docker vient de s'ouvrir (mot de passe Samba choisi au début)"
