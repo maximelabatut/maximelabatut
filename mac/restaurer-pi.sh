@@ -315,8 +315,9 @@ read -r -p "Redéployer la salle de jeux et Menu Futé maintenant ? [O/n] " J
 if [ "${J:-O}" != n ] && [ "${J:-O}" != N ]; then
   SSH_KEY_FILE="$SSHKEY" "$HERE/mettre-a-jour-jeux.sh" --force || echo "   Salle de jeux : échec. À relancer plus tard : mac/mettre-a-jour-jeux.sh --force"
   SSH_KEY_FILE="$SSHKEY" "$HERE/mettre-a-jour-menufute.sh" --force || echo "   Menu Futé : échec. À relancer plus tard : mac/mettre-a-jour-menufute.sh --force"
+  SSH_KEY_FILE="$SSHKEY" "$HERE/mettre-a-jour-cleaner.sh" --force || echo "   Roborock Cleaner : échec. À relancer plus tard : mac/mettre-a-jour-cleaner.sh --force"
 else
-  echo "Plus tard : mac/mettre-a-jour-jeux.sh --force  puis  mac/mettre-a-jour-menufute.sh --force"
+  echo "Plus tard : mac/mettre-a-jour-jeux.sh --force, mac/mettre-a-jour-menufute.sh --force  puis  mac/mettre-a-jour-cleaner.sh --force"
 fi
 
 read -r -p "Connecter le compte caméra (Homewatch) maintenant ? Il faudra l'e-mail, le mot de passe et le code reçu. [O/n] " A
@@ -334,5 +335,6 @@ echo
 echo "Restauration terminée. Reste à ta charge :"
 echo "  - durcissement SSH (procédure de la documentation : ta clé est déjà installée sur le Pi, il ne reste que le test et le fichier de configuration)"
 echo "  - vérifier les sites protégés par Access dans le navigateur (e-mail + code + MFA)"
+echo "  - Roborock Cleaner : rejumeler l'aspirateur (le jumelage Matter n'est pas sauvegardé) : Apple Maison > accessoire > Réglages > mode de jumelage, puis sur le Pi : cd ~/docker && docker compose run --rm cleaner npm run pair -- <code> && docker compose up -d cleaner"
 echo "  - Menu Futé : base vide après restauration, lancer la synchro du catalogue (roue crantée de l'application, environ 1 minute)"
 echo "  - Finder : le partage smb://maxime.local/docker vient de s'ouvrir (mot de passe Samba choisi au début)"

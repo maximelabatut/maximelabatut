@@ -284,6 +284,42 @@ services:
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_MENUFUTE}
 
+  # Roborock Cleaner (application privée, dépôt maximelabatut/roborockcleaner) : pilote l'aspirateur via Matter.
+  # network_mode: host OBLIGATOIRE : Matter découvre l'appareil par mDNS (multicast), absent d'un réseau Docker en pont.
+  # L'application n'écoute que sur 127.0.0.1:8091 et ne demande PAS de jeton aux connexions locales (donc au tunnel) :
+  # Cloudflare Access est la seule barrière, elle doit être en place AVANT de démarrer cloudflared-cleaner.
+  # Sources copiées dans ./cleaner/app par mac/mettre-a-jour-cleaner.sh ; jumelage (secret) dans ./cleaner/matter-storage (hors git).
+  # Ne démarre qu'après le jumelage (voir ajouter-un-site.md) : sans appareil jumelé le serveur s'arrête.
+  cleaner:
+    build:
+      context: ./cleaner/app
+      dockerfile: ../Dockerfile
+    image: cleaner:local
+    container_name: cleaner
+    logging: *default-logging
+    restart: unless-stopped
+    network_mode: host
+    mem_limit: 384m
+    environment:
+      - HOST=127.0.0.1
+      - PORT=8091
+    volumes:
+      - ./cleaner/matter-storage:/app/.matter-storage
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8091/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  cloudflared-cleaner:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-cleaner
+    logging: *default-logging
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_CLEANER}
+
   cloudflared-web2:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-web2

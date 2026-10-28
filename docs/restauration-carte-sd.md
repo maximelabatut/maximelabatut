@@ -71,7 +71,7 @@ Un disque USB partagé en SMB n'est pas dans l'archive : ses fichiers sont sur l
 
 ### 7. Applications dont le code est hors de ce dépôt
 
-Les applications construites depuis un autre dépôt (jeux, application privée) ne sont **pas** démarrées par `restore.sh` sur une carte neuve : leur code est absent du clone, et un seul dossier de build manquant ferait échouer tout `docker compose up -d`. Le script affiche la liste des services laissés de côté ; `restaurer-pi.sh` propose de les redéployer à la fin, ou à la main depuis le Mac avec les scripts `mac/mettre-a-jour-*.sh --force`. Leurs bases reconstructibles (catalogues) ne sont pas sauvegardées : on les resynchronise depuis l'application.
+Les applications construites depuis un autre dépôt (jeux, application privée) ne sont **pas** démarrées par `restore.sh` sur une carte neuve : leur code est absent du clone, et un seul dossier de build manquant ferait échouer tout `docker compose up -d`. Le script affiche la liste des services laissés de côté ; `restaurer-pi.sh` propose de les redéployer à la fin, ou à la main depuis le Mac avec les scripts `mac/mettre-a-jour-*.sh --force`. Leurs bases reconstructibles (catalogues) ne sont pas sauvegardées : on les resynchronise depuis l'application. L'état propre à un appareil domestique piloté (jumelage d'un équipement) n'est pas non plus sauvegardé : il faut le refaire après une restauration, selon la procédure de l'application.
 
 ## Ce qui protège quoi
 
