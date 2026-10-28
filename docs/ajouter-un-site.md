@@ -192,6 +192,8 @@ Chaque application est un tiroir (`<details>`) regroupant son conteneur nginx et
 | Site principal | `www` + `www-status` + `cloudflared-www` |
 | GameVault | `gamevault` (Python) + `cloudflared-gamevault` |
 | Application privée | `<application>` + `cloudflared-<application>` |
+| Salle de jeux | `games` + `gardenbrawl-manettes` + `cloudflared-games` |
+| Gestionnaire de téléchargements | `jdownloader` (aucun tunnel : accès local uniquement) |
 | Web2 | `web2` + `cloudflared-web2` |
 
 **Outils techniques et maintenance** (`tech`)

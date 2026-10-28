@@ -37,6 +37,7 @@ Ce dépôt contient **toute la configuration de mon serveur personnel** : les co
 | [www.maximelabatut.com](https://www.maximelabatut.com) | Page d'accueil du homelab, avec statut en direct | Public |
 | `gamevault.maximelabatut.com` | GameVault (application perso, Python + SQLite) | Cloudflare Access + MFA |
 | [web2.maximelabatut.com](https://web2.maximelabatut.com) | Web2, terrain d'expériences | Public |
+| [games.maximelabatut.com](https://games.maximelabatut.com) | Salle de jeux : petits jeux jouables dans le navigateur (manettes sur téléphone) | Public |
 | `config.maximelabatut.com` | Dashboard de supervision | Cloudflare Access + MFA |
 | `netdata.maximelabatut.com` | Métriques détaillées (Netdata) | Cloudflare Access + MFA |
 | `logs.maximelabatut.com` | Logs des conteneurs (Dozzle) | Cloudflare Access + MFA |
