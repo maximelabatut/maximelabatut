@@ -59,6 +59,34 @@ flowchart LR
     end
 ```
 
+### Vue d'ensemble : les familles de services
+
+```mermaid
+flowchart TB
+    CF["Cloudflare<br/>DNS · TLS · Access"] ==> TUN
+    subgraph PI ["Raspberry Pi 4 · Docker Compose"]
+        TUN["cloudflared<br/>1 tunnel par application"]
+        subgraph PUB ["Sites publics"]
+            W["Page d'accueil · Web2 · Salle de jeux"]
+        end
+        subgraph PRIV ["Applications personnelles · Access"]
+            A["Un conteneur par application<br/>(Python, Node, SQLite…)"]
+        end
+        subgraph SUP ["Supervision · Access + MFA"]
+            S["Dashboard · Netdata · Logs · Uptime Kuma"]
+        end
+        TUN --> PUB
+        TUN --> PRIV
+        TUN --> SUP
+        S -.->|"surveille"| PUB
+        S -.->|"surveille"| PRIV
+    end
+    BK["Sauvegarde chiffrée<br/>quotidienne"] -.-> GH[("GitHub<br/>dépôt privé")]
+    PI -.-> BK
+```
+
+Chaque application suit le même modèle : **un conteneur + un tunnel + un sous-domaine**, avec une protection Access adaptée à sa sensibilité. Les services de supervision sont les seuls à lire l'état de Docker (en lecture seule).
+
 ### Alertes : être prévenu d'une panne
 
 ```mermaid
