@@ -22,3 +22,6 @@ cleaner/app/
 cleaner/matter-storage/
 cleaner/.version
 cleaner/roborock-home/
+sentinel/app/
+sentinel/data/
+sentinel/.version

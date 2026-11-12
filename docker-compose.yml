@@ -344,6 +344,40 @@ services:
       retries: 3
       start_period: 30s
 
+  # Sentinel (application privée, dépôt maximelabatut/sentinel) : armement/désarmement de la centrale d'alarme depuis une page web.
+  # APPLICATION TRÈS SENSIBLE : derrière Cloudflare Access + MFA (utilisateur seul), Access AVANT de démarrer cloudflared-sentinel.
+  # Écoute 127.0.0.1:8092 (conteneur : 8080). Réseau Docker par défaut : la centrale est jointe en sortie sur le réseau local.
+  # Tous les clients ont la même IP vue par l'application (127.0.0.1/passerelle Docker) : blocage et journal d'audit globaux.
+  # Sources copiées dans ./sentinel/app par mac/mettre-a-jour-sentinel.sh ; secrets (config.json, webapp.json, journal) dans
+  # ./sentinel/data (hors git, NON sauvegardés). Ne démarre qu'une fois config.json et webapp.json créés (voir ajouter-un-site.md).
+  sentinel:
+    build:
+      context: ./sentinel/app
+      dockerfile: ../Dockerfile
+    image: sentinel:local
+    container_name: sentinel
+    logging: *default-logging
+    restart: unless-stopped
+    mem_limit: 192m
+    ports:
+      - "127.0.0.1:8092:8080"
+    volumes:
+      - ./sentinel/data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/index.html', timeout=5)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  cloudflared-sentinel:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-sentinel
+    logging: *default-logging
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_SENTINEL}
+
   cloudflared-web2:
     image: cloudflare/cloudflared:latest
     container_name: cloudflared-web2
