@@ -40,8 +40,8 @@ echo "== 3/7 Dépôt GitHub"
 mkdir -p "$HOME/docker/www/html/data" "$HOME/docker/dashboard/data" "$HOME/docker/uptime-kuma/data" "$HOME/docker/gamevault/app" "$HOME/docker/gamevault/data" "$HOME/docker/homewatch/app" "$HOME/docker/homewatch/data"
 # Salle de jeux, Menu Futé, JDownloader : dossiers non versionnés (copies du code des jeux, base SQLite, configuration).
 # Créés ici pour appartenir à maxime : Docker les créerait sinon en root et les conteneurs ne pourraient pas y écrire.
-mkdir -p "$HOME/docker/games/html/gardenbrawl" "$HOME/docker/games/manettes/serveur" "$HOME/docker/games/manettes/manette" "$HOME/docker/menufute/app" "$HOME/docker/menufute/data" "$HOME/docker/jdownloader/config" "$HOME/docker/cleaner/app" "$HOME/docker/cleaner/matter-storage" "$HOME/docker/cleaner/roborock-home" "$HOME/docker/sentinel/app" "$HOME/docker/sentinel/data" "$HOME/docker/maison/app"
-chmod 700 "$HOME/docker/cleaner/matter-storage" "$HOME/docker/cleaner/roborock-home" "$HOME/docker/sentinel/data"   # jumelage Matter et session Roborock (secrets, non sauvegardés)
+mkdir -p "$HOME/docker/games/html/gardenbrawl" "$HOME/docker/games/manettes/serveur" "$HOME/docker/games/manettes/manette" "$HOME/docker/menufute/app" "$HOME/docker/menufute/data" "$HOME/docker/jdownloader/config" "$HOME/docker/cleaner/app" "$HOME/docker/cleaner/matter-storage" "$HOME/docker/cleaner/roborock-home" "$HOME/docker/sentinel/app" "$HOME/docker/sentinel/data" "$HOME/docker/maison/app" "$HOME/docker/maison/data"
+chmod 700 "$HOME/docker/cleaner/matter-storage" "$HOME/docker/cleaner/roborock-home" "$HOME/docker/sentinel/data" "$HOME/docker/maison/data"   # jumelage Matter et session Roborock (secrets, non sauvegardés)
 # Clone d'un dépôt privé avec sa clé de déploiement (lecture seule), ou git pull s'il existe déjà.
 # Une clé par dépôt (GitHub n'accepte pas la même clé sur deux dépôts) : /tmp/<nom>-deploy-key, alias SSH github-<nom>.
 deploy_repo() {

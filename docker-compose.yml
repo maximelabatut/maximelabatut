@@ -437,6 +437,8 @@ services:
     # Réseau hôte : `cleaner` ne demande aucun jeton aux connexions venant de 127.0.0.1.
     network_mode: host
     mem_limit: 128m
+    volumes:
+      - ./maison/data:/run/secrets:ro
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
@@ -446,6 +448,9 @@ services:
       - LINK_SENTINEL=${MAISON_LINK_SENTINEL:-}
       - LINK_HOMEWATCH=${MAISON_LINK_HOMEWATCH:-}
       - LINK_MENUFUTE=${MAISON_LINK_MENUFUTE:-}
+      # Alarme en LECTURE SEULE : jeton de service Access (fichier déposé à la main, jamais dans le dépôt). Sans le fichier : « Jeton de service illisible ».
+      - SENTINEL_TOKEN_FILE=/run/secrets/sentinel-token.json
+      - SENTINEL_AREAS=1
       # Caméras : vérification de l'identité Cloudflare Access (équipe + AUD de l'application). Sans AUD, les caméras restent verrouillées.
       - ACCESS_TEAM_DOMAIN=${MAISON_ACCESS_TEAM:-}
       - ACCESS_AUD=${MAISON_ACCESS_AUD:-}

@@ -28,3 +28,4 @@ sentinel/.version
 sentinel/candidate/
 maison/app/
 maison/.version
+maison/data/
