@@ -445,6 +445,9 @@ services:
       - PORT=8093
       - LINK_SENTINEL=${MAISON_LINK_SENTINEL:-}
       - LINK_HOMEWATCH=${MAISON_LINK_HOMEWATCH:-}
+      # Caméras : vérification de l'identité Cloudflare Access (équipe + AUD de l'application). Sans AUD, les caméras restent verrouillées.
+      - ACCESS_TEAM_DOMAIN=${MAISON_ACCESS_TEAM:-}
+      - ACCESS_AUD=${MAISON_ACCESS_AUD:-}
 
   cloudflared-hubble:
     image: cloudflare/cloudflared:latest
