@@ -185,7 +185,7 @@ if [ -n "$SKIP" ]; then
   echo "Roborock Cleaner : mac/mettre-a-jour-cleaner.sh --force, puis REJUMELER l'aspirateur (le jumelage Matter n'est pas sauvegardé) :"
   echo "  cd ~/docker && docker compose run --rm cleaner npm run pair -- <code>   puis   docker compose up -d cleaner"
   echo "Sentinel (alarme) : mac/mettre-a-jour-sentinel.sh --force, puis recréer config.json (IP, PIN, clé de la centrale) et le mot de passe web dans ~/docker/sentinel/data (voir ajouter-un-site.md, section Sentinel) ; les secrets de la centrale ne sont pas sauvegardés."
-  echo "Maison : application personnelle, code hors dépôt : le recopier depuis le Mac dans ~/docker/maison/app, puis  cd ~/docker && docker compose up -d --build maison"
+  echo "Maison (hubble) : mac/mettre-a-jour-hubble.sh --force (le code vient d'un dépôt privé, lu depuis le Mac)"
   echo "Plan de la maison (optionnel) : se reconnecter au compte Roborock (la session n'est pas sauvegardée) :"
   echo "  cd ~/docker && docker compose run --rm cleaner-mapper roborock login --email <ton e-mail Roborock>   puis   docker compose up -d cleaner-mapper"
 fi

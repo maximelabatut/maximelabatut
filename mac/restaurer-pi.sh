@@ -317,8 +317,9 @@ if [ "${J:-O}" != n ] && [ "${J:-O}" != N ]; then
   SSH_KEY_FILE="$SSHKEY" "$HERE/mettre-a-jour-menufute.sh" --force || echo "   Menu Futé : échec. À relancer plus tard : mac/mettre-a-jour-menufute.sh --force"
   SSH_KEY_FILE="$SSHKEY" "$HERE/mettre-a-jour-cleaner.sh" --force || echo "   Roborock Cleaner : échec. À relancer plus tard : mac/mettre-a-jour-cleaner.sh --force"
   SSH_KEY_FILE="$SSHKEY" "$HERE/mettre-a-jour-sentinel.sh" --force || echo "   Sentinel : échec. À relancer plus tard : mac/mettre-a-jour-sentinel.sh --force"
+  SSH_KEY_FILE="$SSHKEY" "$HERE/mettre-a-jour-hubble.sh" --force || echo "   Maison (hubble) : échec. À relancer plus tard : mac/mettre-a-jour-hubble.sh --force"
 else
-  echo "Plus tard : mac/mettre-a-jour-jeux.sh --force, mac/mettre-a-jour-menufute.sh --force, mac/mettre-a-jour-cleaner.sh --force  puis  mac/mettre-a-jour-sentinel.sh --force"
+  echo "Plus tard : mac/mettre-a-jour-jeux.sh --force, mac/mettre-a-jour-menufute.sh --force, mac/mettre-a-jour-cleaner.sh --force, mac/mettre-a-jour-sentinel.sh --force  puis  mac/mettre-a-jour-hubble.sh --force"
 fi
 
 read -r -p "Connecter le compte caméra (Homewatch) maintenant ? Il faudra l'e-mail, le mot de passe et le code reçu. [O/n] " A
@@ -338,6 +339,6 @@ echo "  - durcissement SSH (procédure de la documentation : ta clé est déjà 
 echo "  - vérifier les sites protégés par Access dans le navigateur (e-mail + code + MFA)"
 echo "  - Sentinel (alarme) : recréer ~/docker/sentinel/data/config.json (IP, PIN, clé de la centrale) et le mot de passe web (docker compose run --rm sentinel python webapp/setup.py), puis docker compose up -d sentinel : ces secrets ne sont pas sauvegardés (voir la documentation)"
 echo "  - Roborock Cleaner : rejumeler l'aspirateur (le jumelage Matter n'est pas sauvegardé) : Apple Maison > accessoire > Réglages > mode de jumelage, puis sur le Pi : cd ~/docker && docker compose run --rm cleaner npm run pair -- <code> && docker compose up -d cleaner ; plan de la maison : docker compose run --rm cleaner-mapper roborock login --email <e-mail Roborock> && docker compose up -d cleaner-mapper"
-echo "  - Maison : son code n'est dans aucun dépôt : le recopier depuis le Mac dans ~/docker/maison/app, puis ssh maxime@maxime.local 'cd ~/docker && docker compose up -d --build maison'"
+echo "  - Maison (hubble) : mac/mettre-a-jour-hubble.sh --force (déjà proposé plus haut) ; vérifier ensuite hubble.<domaine> dans le navigateur (Access)"
 echo "  - Menu Futé : base vide après restauration, lancer la synchro du catalogue (roue crantée de l'application, environ 1 minute)"
 echo "  - Finder : le partage smb://maxime.local/docker vient de s'ouvrir (mot de passe Samba choisi au début)"
