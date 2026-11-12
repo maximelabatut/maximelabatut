@@ -338,5 +338,6 @@ echo "  - durcissement SSH (procédure de la documentation : ta clé est déjà 
 echo "  - vérifier les sites protégés par Access dans le navigateur (e-mail + code + MFA)"
 echo "  - Sentinel (alarme) : recréer ~/docker/sentinel/data/config.json (IP, PIN, clé de la centrale) et le mot de passe web (docker compose run --rm sentinel python webapp/setup.py), puis docker compose up -d sentinel : ces secrets ne sont pas sauvegardés (voir la documentation)"
 echo "  - Roborock Cleaner : rejumeler l'aspirateur (le jumelage Matter n'est pas sauvegardé) : Apple Maison > accessoire > Réglages > mode de jumelage, puis sur le Pi : cd ~/docker && docker compose run --rm cleaner npm run pair -- <code> && docker compose up -d cleaner ; plan de la maison : docker compose run --rm cleaner-mapper roborock login --email <e-mail Roborock> && docker compose up -d cleaner-mapper"
+echo "  - Maison : son code n'est dans aucun dépôt : le recopier depuis le Mac dans ~/docker/maison/app, puis ssh maxime@maxime.local 'cd ~/docker && docker compose up -d --build maison'"
 echo "  - Menu Futé : base vide après restauration, lancer la synchro du catalogue (roue crantée de l'application, environ 1 minute)"
 echo "  - Finder : le partage smb://maxime.local/docker vient de s'ouvrir (mot de passe Samba choisi au début)"

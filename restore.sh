@@ -40,7 +40,7 @@ echo "== 3/7 Dépôt GitHub"
 mkdir -p "$HOME/docker/www/html/data" "$HOME/docker/dashboard/data" "$HOME/docker/uptime-kuma/data" "$HOME/docker/gamevault/app" "$HOME/docker/gamevault/data" "$HOME/docker/homewatch/app" "$HOME/docker/homewatch/data"
 # Salle de jeux, Menu Futé, JDownloader : dossiers non versionnés (copies du code des jeux, base SQLite, configuration).
 # Créés ici pour appartenir à maxime : Docker les créerait sinon en root et les conteneurs ne pourraient pas y écrire.
-mkdir -p "$HOME/docker/games/html/gardenbrawl" "$HOME/docker/games/manettes/serveur" "$HOME/docker/games/manettes/manette" "$HOME/docker/menufute/app" "$HOME/docker/menufute/data" "$HOME/docker/jdownloader/config" "$HOME/docker/cleaner/app" "$HOME/docker/cleaner/matter-storage" "$HOME/docker/cleaner/roborock-home" "$HOME/docker/sentinel/app" "$HOME/docker/sentinel/data"
+mkdir -p "$HOME/docker/games/html/gardenbrawl" "$HOME/docker/games/manettes/serveur" "$HOME/docker/games/manettes/manette" "$HOME/docker/menufute/app" "$HOME/docker/menufute/data" "$HOME/docker/jdownloader/config" "$HOME/docker/cleaner/app" "$HOME/docker/cleaner/matter-storage" "$HOME/docker/cleaner/roborock-home" "$HOME/docker/sentinel/app" "$HOME/docker/sentinel/data" "$HOME/docker/maison/app"
 chmod 700 "$HOME/docker/cleaner/matter-storage" "$HOME/docker/cleaner/roborock-home" "$HOME/docker/sentinel/data"   # jumelage Matter et session Roborock (secrets, non sauvegardés)
 # Clone d'un dépôt privé avec sa clé de déploiement (lecture seule), ou git pull s'il existe déjà.
 # Une clé par dépôt (GitHub n'accepte pas la même clé sur deux dépôts) : /tmp/<nom>-deploy-key, alias SSH github-<nom>.
@@ -162,6 +162,8 @@ SKIP=""
 [ -f cleaner/app/mapper/server.py ] && [ -f cleaner/roborock-home/.roborock ] || SKIP="$SKIP cleaner-mapper"
 # Sentinel (alarme) : sources ET secrets (config.json de la centrale, webapp.json) requis ; les secrets ne sont PAS sauvegardés.
 [ -f sentinel/app/webapp/server.py ] && [ -s sentinel/data/config.json ] && [ -s sentinel/data/webapp.json ] || SKIP="$SKIP sentinel"
+# Maison : application personnelle dont le code vient du Mac (aucun dépôt) : démarrée seulement une fois ses sources recopiées.
+[ -f maison/app/server.mjs ] || SKIP="$SKIP maison"
 if [ -n "$SKIP" ]; then echo "   Sources absentes, non démarrés pour l'instant :$SKIP"; fi
 SERVICES="$(sg docker -c "docker compose config --services" | grep -vxF -f <(printf '%s\n' $SKIP) | tr '\n' ' ')"
 # Un conteneur qui échoue (ex. JDownloader sans disque de stockage) ne doit pas interrompre la fin de la restauration.
@@ -183,6 +185,7 @@ if [ -n "$SKIP" ]; then
   echo "Roborock Cleaner : mac/mettre-a-jour-cleaner.sh --force, puis REJUMELER l'aspirateur (le jumelage Matter n'est pas sauvegardé) :"
   echo "  cd ~/docker && docker compose run --rm cleaner npm run pair -- <code>   puis   docker compose up -d cleaner"
   echo "Sentinel (alarme) : mac/mettre-a-jour-sentinel.sh --force, puis recréer config.json (IP, PIN, clé de la centrale) et le mot de passe web dans ~/docker/sentinel/data (voir ajouter-un-site.md, section Sentinel) ; les secrets de la centrale ne sont pas sauvegardés."
+  echo "Maison : application personnelle, code hors dépôt : le recopier depuis le Mac dans ~/docker/maison/app, puis  cd ~/docker && docker compose up -d --build maison"
   echo "Plan de la maison (optionnel) : se reconnecter au compte Roborock (la session n'est pas sauvegardée) :"
   echo "  cd ~/docker && docker compose run --rm cleaner-mapper roborock login --email <ton e-mail Roborock>   puis   docker compose up -d cleaner-mapper"
 fi

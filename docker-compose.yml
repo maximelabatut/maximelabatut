@@ -427,6 +427,33 @@ services:
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_HOMEWATCH}
 
+  maison:
+    build:
+      context: ./maison/app
+    image: maison:local
+    container_name: maison
+    logging: *default-logging
+    restart: unless-stopped
+    # Réseau hôte : `cleaner` ne demande aucun jeton aux connexions venant de 127.0.0.1.
+    network_mode: host
+    mem_limit: 128m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      - HOST=127.0.0.1
+      - PORT=8093
+      - LINK_SENTINEL=${MAISON_LINK_SENTINEL:-}
+      - LINK_HOMEWATCH=${MAISON_LINK_HOMEWATCH:-}
+
+  cloudflared-hubble:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-hubble
+    logging: *default-logging
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_HUBBLE}
+
 volumes:
   netdataconfig:
   netdatalib:
