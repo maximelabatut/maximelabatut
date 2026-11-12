@@ -212,6 +212,7 @@ const APPS = [
   { id: 'cleaner', category: 'main', name: 'Cleaner', url: 'https://cleaner.maximelabatut.com', members: ['cleaner', 'cleaner-mapper', 'cloudflared-cleaner'] },
   { id: 'sentinel', category: 'main', name: 'Sentinel', url: 'https://sentinel.maximelabatut.com', members: ['sentinel', 'cloudflared-sentinel'] },
   { id: 'hubble', category: 'main', name: 'Maison', url: 'https://hubble.maximelabatut.com', members: ['maison', 'cloudflared-hubble'] },
+  { id: 'dayshift', category: 'main', name: 'Dayshift', url: 'https://dayshift.maximelabatut.com', members: ['dayshift', 'cloudflared-dayshift'] },
   { id: 'jdownloader', category: 'main', name: 'JDownloader', url: null, members: ['jdownloader'],
     note: 'Gestionnaire de téléchargements : pas d\'adresse publique, accès local uniquement (tunnel SSH). Les fichiers vont sur le disque de stockage.' },
   { id: 'uptime', category: 'tech', name: 'Uptime Kuma', url: 'https://uptime.maximelabatut.com', members: ['uptime-kuma', 'cloudflared-uptime'] }
@@ -247,6 +248,8 @@ const DESCRIPTIONS = {
   'cloudflared-sentinel': 'Publie l\'application privée',
   'maison': 'Application personnelle (page + petit serveur Node) : derrière Cloudflare Access + MFA',
   'cloudflared-hubble': 'Publie l\'application privée',
+  'dayshift': 'Application personnelle (page + petit serveur Node) : derrière Cloudflare Access + MFA',
+  'cloudflared-dayshift': 'Publie l\'application personnelle',
   'jdownloader': 'Gestionnaire de téléchargements JDownloader 2 (interface web locale), enregistre sur le disque de stockage',
   'uptime-kuma': 'Surveille les sites toutes les minutes et envoie une alerte sur le téléphone (ntfy) en cas de panne',
   'cloudflared-uptime': 'Publie Uptime Kuma (uptime.maximelabatut.com)'

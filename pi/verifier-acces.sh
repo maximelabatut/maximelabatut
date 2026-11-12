@@ -16,7 +16,7 @@ set -uo pipefail
 
 DOMAIN="${DOMAIN:-maximelabatut.com}"
 PUBLIC_HOSTS="${PUBLIC_HOSTS:-www web2 games}"
-PROTECTED_HOSTS="${PROTECTED_HOSTS:-config netdata logs uptime gamevault homewatch menufute cleaner sentinel hubble}"
+PROTECTED_HOSTS="${PROTECTED_HOSTS:-config netdata logs uptime gamevault homewatch menufute cleaner sentinel hubble dayshift}"
 QUIET=0; [ "${1:-}" = "--quiet" ] && QUIET=1
 
 anomalies=0; injoignables=0; total=0
