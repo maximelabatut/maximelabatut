@@ -448,7 +448,7 @@ services:
       - LINK_SENTINEL=${MAISON_LINK_SENTINEL:-}
       - LINK_HOMEWATCH=${MAISON_LINK_HOMEWATCH:-}
       - LINK_MENUFUTE=${MAISON_LINK_MENUFUTE:-}
-      # Alarme en LECTURE SEULE : jeton de service Access (fichier déposé à la main, jamais dans le dépôt). Sans le fichier : « Jeton de service illisible ».
+      # Alarme : jeton de service Access (fichier déposé à la main, jamais dans le dépôt) ; lit l état et, sur commande d un utilisateur Access vérifié, arme et désarme. Sans le fichier : « Jeton de service illisible ».
       - SENTINEL_TOKEN_FILE=/run/secrets/sentinel-token.json
       - SENTINEL_AREAS=1
       # Caméras : vérification de l'identité Cloudflare Access (équipe + AUD de l'application). Sans AUD, les caméras restent verrouillées.
