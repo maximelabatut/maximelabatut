@@ -454,6 +454,7 @@ services:
       # Caméras : vérification de l'identité Cloudflare Access (équipe + AUD de l'application). Sans AUD, les caméras restent verrouillées.
       - ACCESS_TEAM_DOMAIN=${MAISON_ACCESS_TEAM:-}
       - ACCESS_AUD=${MAISON_ACCESS_AUD:-}
+      - MERCURY_URL=http://127.0.0.1:8095
 
   cloudflared-hubble:
     image: cloudflare/cloudflared:latest
@@ -498,6 +499,42 @@ services:
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_DAYSHIFT}
+
+  # Mercury : suivi des températures de la maison (Echo Dot via Alexa, météo Open-Meteo), Node, SANS authentification propre :
+  # Cloudflare Access (application dédiée, utilisateur seul) est la seule barrière. Hubble le lit en loopback (127.0.0.1:8095).
+  # Sources : dépôt privé « mercury », copiées dans ./mercury/app par mac/mettre-a-jour-mercury.sh. Réglages de la maison
+  # (heures creuses, coordonnées, pièces, seuils) dans config/house.json, DANS le code. Données (SQLite + session Alexa) dans
+  # ./mercury/data (hors git, NON sauvegardées). Réseau Docker par défaut, port publié sur le loopback seulement.
+  mercury:
+    build:
+      context: ./mercury/app
+    image: mercury:local
+    container_name: mercury
+    logging: *default-logging
+    restart: unless-stopped
+    mem_limit: 128m
+    ports:
+      - "127.0.0.1:8095:8095"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8095
+      - ALEXA_ENABLED=1
+      - ALEXA_DEVICE_NAME=echo dot
+      - ALEXA_ROOM=bureau
+    volumes:
+      - ./mercury/data:/data
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  cloudflared-mercury:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-mercury
+    logging: *default-logging
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_MERCURY}
 
 volumes:
   netdataconfig:

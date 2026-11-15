@@ -32,3 +32,6 @@ maison/data/
 dayshift/app/
 dayshift/data/
 dayshift/.version
+mercury/app/
+mercury/data/
+mercury/.version
