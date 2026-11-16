@@ -150,7 +150,7 @@ check_archive() {
     warn "pas de zigbee2mqtt-data.tgz : réseau Zigbee non sauvegardé (les capteurs seront à réappairer)"
   fi
 
-  # Mosquitto et mot de passe MQTT de Mercury (facultatifs : absents des sauvegardes d'avant le 17 novembre 2026)
+  # Mosquitto et mot de passe MQTT de Mercury (facultatifs : absents des sauvegardes d.avant le 16 novembre 2026)
   for f in mosquitto-config.tgz mercury-mqtt-password; do
     if [ -s "$X/$f" ]; then ok "présent : $f"; else warn "pas de $f : à recréer à la main (utilisateurs MQTT z2m et mercury)"; fi
   done
