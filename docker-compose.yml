@@ -523,6 +523,10 @@ services:
       - ALEXA_ENABLED=1
       - ALEXA_DEVICE_NAME=echo dot
       - ALEXA_ROOM=bureau
+      - ZIGBEE_ENABLED=1
+      - MQTT_URL=mqtt://mosquitto:1883
+      - MQTT_USER=mercury
+      - MQTT_PASSWORD_FILE=/data/mqtt-password
     volumes:
       - ./mercury/data:/data
     read_only: true
@@ -537,6 +541,35 @@ services:
     restart: unless-stopped
     network_mode: host
     command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_MERCURY}
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto
+    logging: *default-logging
+    restart: unless-stopped
+    mem_limit: 64m
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+      - ./mosquitto/data:/mosquitto/data
+    security_opt: ["no-new-privileges:true"]
+
+  zigbee2mqtt:
+    image: koenkk/zigbee2mqtt:2.14.3
+    container_name: zigbee2mqtt
+    logging: *default-logging
+    restart: unless-stopped
+    mem_limit: 256m
+    depends_on: [mosquitto]
+    ports:
+      - "127.0.0.1:8099:8080"
+    volumes:
+      - ./zigbee2mqtt/data:/app/data
+      - /run/udev:/run/udev:ro
+    devices:
+      - ${ZIGBEE_DEVICE:-/dev/ttyUSB0}:/dev/ttyUSB0   # chemin stable de la clé (/dev/serial/by-id/…) dans .env ; défaut : le seul port USB série
+    environment:
+      - TZ=Europe/Paris
+    security_opt: ["no-new-privileges:true"]
 
 volumes:
   netdataconfig:
