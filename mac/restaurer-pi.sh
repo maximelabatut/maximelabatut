@@ -142,6 +142,19 @@ check_archive() {
     if [ -s "$X/$f" ]; then ok "présent : $f"; else bad "absent ou vide : $f"; fi
   done
 
+  # réseau Zigbee (facultatif : absent des sauvegardes d'avant le 16 novembre 2026)
+  if [ -s "$X/zigbee2mqtt-data.tgz" ]; then
+    ZLIST="$(tar tzf "$X/zigbee2mqtt-data.tgz" 2>/dev/null || true)"
+    if grep -qx './configuration.yaml' <<<"$ZLIST"; then ok "présent : zigbee2mqtt-data.tgz (configuration.yaml dedans)"; else bad "zigbee2mqtt-data.tgz sans configuration.yaml"; fi
+  else
+    warn "pas de zigbee2mqtt-data.tgz : réseau Zigbee non sauvegardé (les capteurs seront à réappairer)"
+  fi
+
+  # Mosquitto et mot de passe MQTT de Mercury (facultatifs : absents des sauvegardes d'avant le 17 novembre 2026)
+  for f in mosquitto-config.tgz mercury-mqtt-password; do
+    if [ -s "$X/$f" ]; then ok "présent : $f"; else warn "pas de $f : à recréer à la main (utilisateurs MQTT z2m et mercury)"; fi
+  done
+
   # tokens
   if [ -s "$X/env" ]; then
     tok="$(awk -F= '/^CLOUDFLARE_TUNNEL_TOKEN_/ && length($2) > 100 {n++} END {print n+0}' "$X/env")"
@@ -247,7 +260,7 @@ ssh "${OPTS[@]}" "$HOST" true
 X="$TMP/x"
 scp -q "${OPTS[@]}" "$X/env" "$HOST:/tmp/pi.env"
 scp -q "${OPTS[@]}" "$TMP/smb" "$HOST:/tmp/pi.smb"
-for f in uptime-kuma-data.tgz gamevault-data.tgz; do
+for f in uptime-kuma-data.tgz gamevault-data.tgz zigbee2mqtt-data.tgz mosquitto-config.tgz mercury-mqtt-password; do
   if [ -f "$X/$f" ]; then scp -q "${OPTS[@]}" "$X/$f" "$HOST:/tmp/$f"; echo "$f envoyé."; else echo "Pas de $f dans l'archive."; fi
 done
 for k in gamevault homewatch; do

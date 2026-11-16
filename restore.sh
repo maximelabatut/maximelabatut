@@ -1,7 +1,7 @@
 #!/bin/bash
 # Restauration complète du Pi sur une carte SD vierge. Lancé par restaurer-pi.sh (Mac) via ssh -t.
 # Prérequis : restaurer-pi.sh a déchiffré la dernière archive de sauvegarde et copié sur le Pi, dans /tmp : pi.env, uptime-kuma-data.tgz,
-# gamevault-data.tgz, <dépôt>-deploy-key, homelab-backup-config.tgz ; facultatifs : pi.smb (mot de passe Samba), pi.authkey (clé publique
+# gamevault-data.tgz, <dépôt>-deploy-key, homelab-backup-config.tgz ; facultatifs : zigbee2mqtt-data.tgz (réseau Zigbee), mosquitto-config.tgz et mercury-mqtt-password (MQTT), pi.smb (mot de passe Samba), pi.authkey (clé publique
 # du poste). Relançable sans risque.
 set -euo pipefail
 
@@ -90,6 +90,28 @@ if [ -f /tmp/gamevault-data.tgz ]; then
   rm -f /tmp/gamevault-data.tgz
 fi
 [ -f "$HOME/docker/gamevault/app/rss_proxy_server.py" ] || echo "   ATTENTION : le code de GameVault est absent de ~/docker/gamevault/app (le conteneur gamevault ne démarrera pas)."
+if [ -f /tmp/zigbee2mqtt-data.tgz ]; then
+  echo "   Restauration du réseau Zigbee (zigbee2mqtt/data : clé du réseau, appareils, configuration)"
+  mkdir -p "$HOME/docker/zigbee2mqtt/data"
+  tar xzf /tmp/zigbee2mqtt-data.tgz -C "$HOME/docker/zigbee2mqtt/data"
+  chmod 600 "$HOME/docker/zigbee2mqtt/data/secret.yaml" 2>/dev/null || true
+  rm -f /tmp/zigbee2mqtt-data.tgz
+  echo "   Zigbee2MQTT : remettre ensuite les blocs zigbee2mqtt et mosquitto dans le compose (voir ajouter-un-site.md) ; les capteurs reprennent leur réseau, sans réappairage."
+fi
+if [ -f /tmp/mosquitto-config.tgz ]; then
+  echo "   Restauration de Mosquitto (configuration et utilisateurs MQTT)"
+  sudo install -d -m 775 -o 1883 -g 1883 "$HOME/docker/mosquitto" "$HOME/docker/mosquitto/config" "$HOME/docker/mosquitto/data"
+  sudo tar xzf /tmp/mosquitto-config.tgz -C "$HOME/docker/mosquitto/config" --same-owner
+  sudo chown -R 1883:1883 "$HOME/docker/mosquitto"
+  sudo chmod 600 "$HOME/docker/mosquitto/config/passwd"
+  rm -f /tmp/mosquitto-config.tgz
+fi
+if [ -f /tmp/mercury-mqtt-password ]; then
+  echo "   Restauration du mot de passe MQTT de Mercury"
+  install -d -m 700 "$HOME/docker/mercury/data"
+  install -m 600 /tmp/mercury-mqtt-password "$HOME/docker/mercury/data/mqtt-password"
+  rm -f /tmp/mercury-mqtt-password
+fi
 if [ -f /tmp/uptime-kuma-data.tgz ]; then
   echo "   Restauration des données Uptime Kuma"
   tar xzf /tmp/uptime-kuma-data.tgz -C "$HOME/docker/uptime-kuma/data"

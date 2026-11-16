@@ -8,6 +8,9 @@
 #   env                              le .env (tokens Cloudflare, DOCKER_GID)
 #   uptime-kuma-data.tgz             instantané SQLite cohérent (journal WAL compris) + db-config.json
 #   gamevault-data.tgz               instantané SQLite de GameVault
+#   zigbee2mqtt-data.tgz             réseau Zigbee (clé, base des appareils, configuration), SANS les journaux : sans lui, il faut réappairer tous les capteurs
+#   mosquitto-config.tgz             configuration de Mosquitto (mosquitto.conf, passwd = utilisateurs MQTT), SANS la base de persistance ni les anciennes copies passwd.bak-*
+#   mercury-mqtt-password            mot de passe MQTT de Mercury (fichier 600)
 #   gamevault-deploy-key, homewatch-deploy-key   clés de déploiement (lecture seule) des dépôts privés
 #   homelab-backup/                  clé publique de chiffrement, clé d'écriture du dépôt de sauvegardes, URL Uptime Kuma (si présente)
 #   MANIFEST.txt                     date et résumé, sans secret
@@ -87,6 +90,32 @@ need "$HOME_DIR/docker/.env"
 cp -- "$HOME_DIR/docker/.env" "$D/env"
 TOKENS="$(awk -F= '/^CLOUDFLARE_TUNNEL_TOKEN_/ && length($2) > 100 {n++} END {print n+0}' "$D/env")"
 [ "$TOKENS" -ge 1 ] || { echo "Aucun token Cloudflare valide dans le .env : sauvegarde refusée" >&2; exit 1; }
+# Réseau Zigbee (Zigbee2MQTT) : clé du réseau, base des appareils, configuration. Contient des secrets : l'archive est chiffrée.
+# Le dossier est écrit en continu par Zigbee2MQTT : tar peut signaler « file changed » (code 1), ce qui n'est pas une erreur.
+ZIGBEE="absent"
+ZB="$HOME_DIR/docker/zigbee2mqtt/data"
+if [ -e "$ZB" ]; then
+  need "$ZB"
+  rc=0
+  tar czf "$D/zigbee2mqtt-data.tgz" -C "$ZB" --exclude=./log . || rc=$?
+  [ "$rc" -le 1 ] || { echo "Archive Zigbee2MQTT en échec (code $rc)" >&2; exit 1; }
+  LIST="$(tar tzf "$D/zigbee2mqtt-data.tgz")"     # liste lue d'abord : « tar | grep -q » peut échouer en SIGPIPE avec pipefail
+  grep -qx './configuration.yaml' <<<"$LIST" || { echo "Zigbee2MQTT : configuration.yaml absent de l'archive, sauvegarde refusée" >&2; exit 1; }
+  ZIGBEE="$(grep -vc '/$' <<<"$LIST" || true) fichiers"
+fi
+# Mosquitto (courtier MQTT) : configuration et utilisateurs, plus le mot de passe MQTT de Mercury. passwd n'est lisible que par root (uid 1883, 600).
+# La base de persistance (mosquitto/data) n'est pas sauvegardée : Zigbee2MQTT republie tout à son démarrage.
+MQTT="absent"
+MQ="$HOME_DIR/docker/mosquitto/config"
+if [ -e "$MQ" ]; then
+  need "$MQ"; need "$MQ/mosquitto.conf"; need "$MQ/passwd"
+  tar czf "$D/mosquitto-config.tgz" -C "$MQ" --exclude='./passwd.bak-*' .
+  MLIST="$(tar tzf "$D/mosquitto-config.tgz")"
+  grep -qx './passwd' <<<"$MLIST" && grep -qx './mosquitto.conf' <<<"$MLIST" || { echo "Mosquitto : passwd ou mosquitto.conf absent de l'archive, sauvegarde refusée" >&2; exit 1; }
+  MQTT="configuration + utilisateurs"
+  MQPW="$HOME_DIR/docker/mercury/data/mqtt-password"
+  if [ -e "$MQPW" ]; then need "$MQPW"; cp -- "$MQPW" "$D/mercury-mqtt-password"; MQTT="$MQTT + mot de passe de Mercury"; fi
+fi
 for k in gamevault homewatch; do
   if [ -e "$HOME_DIR/.ssh/${k}_deploy" ]; then need "$HOME_DIR/.ssh/${k}_deploy"; cp -- "$HOME_DIR/.ssh/${k}_deploy" "$D/$k-deploy-key"; fi
 done
@@ -97,6 +126,8 @@ cat > "$D/MANIFEST.txt" <<EOF
 Sauvegarde du homelab : $(date '+%Y-%m-%d %H:%M:%S') ($(hostname))
 $TOKENS tokens Cloudflare, Uptime Kuma : $MON sondes, GameVault : $GAMES jeux
 Clés de déploiement : $(cd "$D" && ls *-deploy-key 2>/dev/null | tr '\n' ' ')
+Zigbee2MQTT : $ZIGBEE
+Mosquitto : $MQTT
 EOF
 
 log "3/5 Archive chiffrée ($NAME)"
@@ -138,7 +169,7 @@ if [ -x /usr/local/sbin/homelab-check-access ]; then
 fi
 
 OK=1
-log "Terminé : $NAME ($SIZE), $COUNT archive(s) sur GitHub. $TOKENS tokens, $MON sondes, $GAMES jeux."
+log "Terminé : $NAME ($SIZE), $COUNT archive(s) sur GitHub. $TOKENS tokens, $MON sondes, $GAMES jeux, Zigbee2MQTT : $ZIGBEE, Mosquitto : $MQTT."
 if [ -n "$EXPO" ]; then
   log "!! EXPOSITION DÉTECTÉE : $EXPO"
   heartbeat down "Exposition détectée : $(echo "$EXPO" | head -1 | cut -c1-120)"
