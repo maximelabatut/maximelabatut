@@ -35,6 +35,9 @@ dayshift/.version
 mercury/app/
 mercury/data/
 mercury/.version
+calendar/app/
+calendar/data/
+calendar/.version
 
 zigbee2mqtt/data/
 mosquitto/

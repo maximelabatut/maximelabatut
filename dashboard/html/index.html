@@ -214,6 +214,7 @@ const APPS = [
   { id: 'hubble', category: 'main', name: 'Maison', url: 'https://hubble.maximelabatut.com', members: ['maison', 'cloudflared-hubble'] },
   { id: 'dayshift', category: 'main', name: 'Dayshift', url: 'https://dayshift.maximelabatut.com', members: ['dayshift', 'cloudflared-dayshift'] },
   { id: 'mercury', category: 'main', name: 'Mercury', url: 'https://mercury.maximelabatut.com', members: ['mercury', 'cloudflared-mercury'] },
+  { id: 'calendar', category: 'main', name: 'Calendar', url: 'https://calendar.maximelabatut.com', members: ['calendar', 'cloudflared-calendar'] },
   { id: 'jdownloader', category: 'main', name: 'JDownloader', url: null, members: ['jdownloader'],
     note: 'Gestionnaire de téléchargements : pas d\'adresse publique, accès local uniquement (tunnel SSH). Les fichiers vont sur le disque de stockage.' },
   { id: 'uptime', category: 'tech', name: 'Uptime Kuma', url: 'https://uptime.maximelabatut.com', members: ['uptime-kuma', 'cloudflared-uptime'] }
@@ -253,6 +254,8 @@ const DESCRIPTIONS = {
   'cloudflared-dayshift': 'Publie l\'application personnelle',
   'mercury': 'Suivi des températures de la maison (page + petit serveur Node) : derrière Cloudflare Access + MFA',
   'cloudflared-mercury': 'Publie l\'application des températures',
+  'calendar': 'Application personnelle (page + petit serveur Node) : derrière Cloudflare Access + MFA et un mot de passe',
+  'cloudflared-calendar': 'Publie l\'application personnelle',
   'jdownloader': 'Gestionnaire de téléchargements JDownloader 2 (interface web locale), enregistre sur le disque de stockage',
   'uptime-kuma': 'Surveille les sites toutes les minutes et envoie une alerte sur le téléphone (ntfy) en cas de panne',
   'cloudflared-uptime': 'Publie Uptime Kuma (uptime.maximelabatut.com)'

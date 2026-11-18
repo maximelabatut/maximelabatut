@@ -571,6 +571,40 @@ services:
       - TZ=Europe/Paris
     security_opt: ["no-new-privileges:true"]
 
+  # Calendar : application personnelle qui lit un portail de mairie (lecture seule du portail).
+  # Données personnelles : application Access dédiée, utilisateur seul, MFA, SEULE barrière (AUTH_DELEGUEE=1 : pas de mot de passe
+  # de page ; l'application n'accepte alors que localhost et ALLOWED_HOSTS, et le port n'est publié que sur 127.0.0.1).
+  # Sources : dépôt privé « calendar », copiées dans ./calendar/app par mac/mettre-a-jour-calendar.sh. Secrets et données
+  # (data/.env, historique.json, factures.json) dans ./calendar/data (hors git, NON sauvegardés). Ne démarre qu'une fois
+  # data/.env en place (identifiants du portail). Protection contre le DNS rebinding : ALLOWED_HOSTS, pas de réglage côté Cloudflare.
+  calendar:
+    build:
+      context: ./calendar/app
+      dockerfile: ../Dockerfile
+    image: calendar:local
+    container_name: calendar
+    logging: *default-logging
+    restart: unless-stopped
+    mem_limit: 192m
+    ports:
+      - "127.0.0.1:8096:3000"
+    environment:
+      - ALLOWED_HOSTS=calendar.maximelabatut.com
+      - AUTH_DELEGUEE=1
+    volumes:
+      - ./calendar/data:/app/data
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  cloudflared-calendar:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-calendar
+    logging: *default-logging
+    restart: unless-stopped
+    network_mode: host
+    command: tunnel run --token ${CLOUDFLARE_TUNNEL_TOKEN_CALENDAR}
+
 volumes:
   netdataconfig:
   netdatalib:

@@ -35,6 +35,7 @@ Un dépôt « prêt à héberger » respecte ce contrat. Ce n'est pas facultatif
 | **Secrets hors du code** | lus depuis l'environnement, un fichier `*_FILE`, ou des chemins fixes redirigés vers `/data` ; **jamais** dans le dépôt, ni dans l'image, ni dans les logs |
 | **Démarrage sans secrets** | mode démo explicite (le journal le dit : `MODE DÉMO`) plutôt qu'un plantage ou, pire, un accès sans protection |
 | **Utilisateur non root, système de fichiers en lecture seule** | l'application n'écrit que dans `/data` (volume) et `/tmp` |
+| **Hôtes autorisés configurables** | si l'application filtre l'en-tête `Host` (protection contre le « DNS rebinding »), elle lit une **liste de noms autorisés dans une variable** (ex. `ALLOWED_HOSTS=<app>.maximelabatut.com`), acceptée seulement quand l'application est protégée par un mot de passe ; sinon elle répond 403 derrière le tunnel |
 | **Journaux sur la sortie standard** | le pilote Docker les fait tourner ; jamais de fichier de log qui grossit sur la carte SD |
 | **Un `Dockerfile`** (voir §5) | image légère (`node:22-alpine`, `python:3.x-slim`), arm64, dépendances figées |
 | **Un `README.md`** | rôle, variables, secrets attendus, comment lancer en local (`npm run demo` ou équivalent) |
@@ -294,6 +295,7 @@ Une application est intégrée quand **toutes** les cases sont cochées :
 | Le partage SMB `/Volumes/docker` montre l'ancienne version d'un fichier | cache : lancer la copie locale ou comparer avec `ssh … cat` |
 | `docker logs` s'arrête avant la fin | lire le fichier de journal brut du conteneur |
 | Application « en panne » qui ne l'est pas | la sonde appelle l'URL publique (Access répond 302) : sonder par le nom Docker |
+| L'application répond « Interdit » (403) derrière le tunnel alors qu'elle marche en local | l'application n'accepte que certains en-têtes `Host` (protection contre le « DNS rebinding »). **Remède propre : une variable de liste d'hôtes dans l'application** (`ALLOWED_HOSTS=<app>.maximelabatut.com` dans le compose). Solution de repli, sans toucher au code : réglage **« HTTP Host Header »** de la route Cloudflare (Additional application settings → HTTP Settings) = `localhost` |
 | Pièces ou configuration perdues après une panne | `<app>/data` n'était pas sauvegardé : c'était à écrire dans la doc (§4.3) |
 
 ## 13. Règles de sécurité à respecter

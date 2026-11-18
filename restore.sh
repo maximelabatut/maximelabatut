@@ -40,8 +40,8 @@ echo "== 3/7 Dépôt GitHub"
 mkdir -p "$HOME/docker/www/html/data" "$HOME/docker/dashboard/data" "$HOME/docker/uptime-kuma/data" "$HOME/docker/gamevault/app" "$HOME/docker/gamevault/data" "$HOME/docker/homewatch/app" "$HOME/docker/homewatch/data"
 # Salle de jeux, Menu Futé, JDownloader : dossiers non versionnés (copies du code des jeux, base SQLite, configuration).
 # Créés ici pour appartenir à maxime : Docker les créerait sinon en root et les conteneurs ne pourraient pas y écrire.
-mkdir -p "$HOME/docker/games/html/gardenbrawl" "$HOME/docker/games/manettes/serveur" "$HOME/docker/games/manettes/manette" "$HOME/docker/menufute/app" "$HOME/docker/menufute/data" "$HOME/docker/jdownloader/config" "$HOME/docker/cleaner/app" "$HOME/docker/cleaner/matter-storage" "$HOME/docker/cleaner/roborock-home" "$HOME/docker/sentinel/app" "$HOME/docker/sentinel/data" "$HOME/docker/maison/app" "$HOME/docker/maison/data" "$HOME/docker/dayshift/app" "$HOME/docker/dayshift/data" "$HOME/docker/mercury/app" "$HOME/docker/mercury/data"
-chmod 700 "$HOME/docker/cleaner/matter-storage" "$HOME/docker/cleaner/roborock-home" "$HOME/docker/sentinel/data" "$HOME/docker/maison/data" "$HOME/docker/dayshift/data" "$HOME/docker/mercury/data"   # jumelage Matter et session Roborock (secrets, non sauvegardés)
+mkdir -p "$HOME/docker/games/html/gardenbrawl" "$HOME/docker/games/manettes/serveur" "$HOME/docker/games/manettes/manette" "$HOME/docker/menufute/app" "$HOME/docker/menufute/data" "$HOME/docker/jdownloader/config" "$HOME/docker/cleaner/app" "$HOME/docker/cleaner/matter-storage" "$HOME/docker/cleaner/roborock-home" "$HOME/docker/sentinel/app" "$HOME/docker/sentinel/data" "$HOME/docker/maison/app" "$HOME/docker/maison/data" "$HOME/docker/dayshift/app" "$HOME/docker/dayshift/data" "$HOME/docker/mercury/app" "$HOME/docker/mercury/data" "$HOME/docker/calendar/app" "$HOME/docker/calendar/data"
+chmod 700 "$HOME/docker/cleaner/matter-storage" "$HOME/docker/cleaner/roborock-home" "$HOME/docker/sentinel/data" "$HOME/docker/maison/data" "$HOME/docker/dayshift/data" "$HOME/docker/mercury/data" "$HOME/docker/calendar/data"   # jumelage Matter et session Roborock (secrets, non sauvegardés)
 # Clone d'un dépôt privé avec sa clé de déploiement (lecture seule), ou git pull s'il existe déjà.
 # Une clé par dépôt (GitHub n'accepte pas la même clé sur deux dépôts) : /tmp/<nom>-deploy-key, alias SSH github-<nom>.
 deploy_repo() {
@@ -190,6 +190,8 @@ SKIP=""
 [ -f dayshift/app/server.js ] || SKIP="$SKIP dayshift"
 # Mercury (températures) : sources requises ; la base et la session Alexa (mercury/data) ne sont PAS sauvegardées.
 [ -f mercury/app/server.mjs ] || SKIP="$SKIP mercury"
+# Calendar (planning périscolaire) : sources ET data/.env (identifiants du portail) requis ; data/ n'est PAS sauvegardé.
+[ -f calendar/app/src/server.js ] && [ -s calendar/data/.env ] || SKIP="$SKIP calendar"
 if [ -n "$SKIP" ]; then echo "   Sources absentes, non démarrés pour l'instant :$SKIP"; fi
 SERVICES="$(sg docker -c "docker compose config --services" | grep -vxF -f <(printf '%s\n' $SKIP) | tr '\n' ' ')"
 # Un conteneur qui échoue (ex. JDownloader sans disque de stockage) ne doit pas interrompre la fin de la restauration.
@@ -214,6 +216,7 @@ if [ -n "$SKIP" ]; then
   echo "Maison (hubble) : mac/mettre-a-jour-hubble.sh --force (le code vient d'un dépôt privé, lu depuis le Mac)"
   echo "Dayshift (volets Somfy) : mac/mettre-a-jour-dayshift.sh --force, puis recréer ~/docker/dayshift/data/.env (GATEWAY_HOST = IP de la box, GATEWAY_TOKEN) : non sauvegardé, sans lui l'application est en MODE DÉMO (voir ajouter-un-site.md)"
   echo "Mercury (températures) : mac/mettre-a-jour-mercury.sh --force, puis refaire la session Alexa (npm run alexa:login sur le Mac, puis scp data/alexa-cookie.json vers ~/docker/mercury/data/) : non sauvegardé, l'historique des relevés est perdu (la météo se reconstitue)"
+  echo "Calendar (planning périscolaire) : mac/mettre-a-jour-calendar.sh --force, puis recréer ~/docker/calendar/data/.env (PORTAIL_EMAIL, PORTAIL_PASSWORD ; copie de travail sur le Mac : ~/Desktop/CODE/portail_sandillon/.env) et relancer le script : non sauvegardé ; l'historique (historique.json, factures.json) repart de zéro sans copie de ~/Desktop/CODE/portail_sandillon/data"
   echo "Plan de la maison (optionnel) : se reconnecter au compte Roborock (la session n'est pas sauvegardée) :"
   echo "  cd ~/docker && docker compose run --rm cleaner-mapper roborock login --email <ton e-mail Roborock>   puis   docker compose up -d cleaner-mapper"
 fi

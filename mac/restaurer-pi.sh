@@ -333,8 +333,9 @@ if [ "${J:-O}" != n ] && [ "${J:-O}" != N ]; then
   SSH_KEY_FILE="$SSHKEY" "$HERE/mettre-a-jour-hubble.sh" --force || echo "   Maison (hubble) : échec. À relancer plus tard : mac/mettre-a-jour-hubble.sh --force"
   SSH_KEY_FILE="$SSHKEY" "$HERE/mettre-a-jour-dayshift.sh" --force || echo "   Dayshift : échec. À relancer plus tard : mac/mettre-a-jour-dayshift.sh --force"
   SSH_KEY_FILE="$SSHKEY" "$HERE/mettre-a-jour-mercury.sh" --force || echo "   Mercury : échec. À relancer plus tard : mac/mettre-a-jour-mercury.sh --force"
+  SSH_KEY_FILE="$SSHKEY" "$HERE/mettre-a-jour-calendar.sh" --force || echo "   Calendar : échec. À relancer plus tard : mac/mettre-a-jour-calendar.sh --force"
 else
-  echo "Plus tard : mac/mettre-a-jour-jeux.sh --force, mac/mettre-a-jour-menufute.sh --force, mac/mettre-a-jour-cleaner.sh --force, mac/mettre-a-jour-sentinel.sh --force  puis  mac/mettre-a-jour-hubble.sh --force  puis  mac/mettre-a-jour-dayshift.sh --force  puis  mac/mettre-a-jour-mercury.sh --force"
+  echo "Plus tard : mac/mettre-a-jour-jeux.sh --force, mac/mettre-a-jour-menufute.sh --force, mac/mettre-a-jour-cleaner.sh --force, mac/mettre-a-jour-sentinel.sh --force  puis  mac/mettre-a-jour-hubble.sh --force  puis  mac/mettre-a-jour-dayshift.sh --force  puis  mac/mettre-a-jour-mercury.sh --force  puis  mac/mettre-a-jour-calendar.sh --force"
 fi
 
 read -r -p "Connecter le compte caméra (Homewatch) maintenant ? Il faudra l'e-mail, le mot de passe et le code reçu. [O/n] " A
@@ -357,5 +358,6 @@ echo "  - Roborock Cleaner : rejumeler l'aspirateur (le jumelage Matter n'est pa
 echo "  - Maison (hubble) : mac/mettre-a-jour-hubble.sh --force (déjà proposé plus haut) ; vérifier ensuite hubble.<domaine> dans le navigateur (Access)"
 echo "  - Dayshift (volets) : mac/mettre-a-jour-dayshift.sh --force (déjà proposé plus haut), puis recréer ~/docker/dayshift/data/.env (GATEWAY_HOST = IP de la box, GATEWAY_TOKEN) : non sauvegardé, sinon MODE DÉMO ; docker compose restart dayshift"
 echo "  - Mercury (températures) : mac/mettre-a-jour-mercury.sh --force (déjà proposé plus haut), puis refaire la session Alexa : npm run alexa:login sur le Mac, scp data/alexa-cookie.json maxime@maxime.local:docker/mercury/data/ ; historique des relevés non sauvegardé (la météo se reconstitue)"
+echo "  - Calendar (planning périscolaire) : mac/mettre-a-jour-calendar.sh --force (déjà proposé plus haut) ; recréer ~/docker/calendar/data/.env (PORTAIL_EMAIL, PORTAIL_PASSWORD) puis relancer le script : non sauvegardé (historique et factures compris : copier data/ depuis ~/Desktop/CODE/portail_sandillon si besoin)"
 echo "  - Menu Futé : base vide après restauration, lancer la synchro du catalogue (roue crantée de l'application, environ 1 minute)"
 echo "  - Finder : le partage smb://maxime.local/docker vient de s'ouvrir (mot de passe Samba choisi au début)"
