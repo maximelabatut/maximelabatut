@@ -1,7 +1,7 @@
 #!/bin/bash
 # Restauration complète du Pi sur une carte SD vierge. Lancé par restaurer-pi.sh (Mac) via ssh -t.
 # Prérequis : restaurer-pi.sh a déchiffré la dernière archive de sauvegarde et copié sur le Pi, dans /tmp : pi.env, uptime-kuma-data.tgz,
-# gamevault-data.tgz, <dépôt>-deploy-key, homelab-backup-config.tgz ; facultatifs : zigbee2mqtt-data.tgz (réseau Zigbee), mosquitto-config.tgz et mercury-mqtt-password (MQTT), pi.smb (mot de passe Samba), pi.authkey (clé publique
+# gamevault-data.tgz, <dépôt>-deploy-key, homelab-backup-config.tgz ; facultatifs : zigbee2mqtt-data.tgz (réseau Zigbee), mosquitto-config.tgz et mercury-mqtt-password (MQTT), calendar-data.tgz (Calendar), pi.smb (mot de passe Samba), pi.authkey (clé publique
 # du poste). Relançable sans risque.
 set -euo pipefail
 
@@ -105,6 +105,13 @@ if [ -f /tmp/mosquitto-config.tgz ]; then
   sudo chown -R 1883:1883 "$HOME/docker/mosquitto"
   sudo chmod 600 "$HOME/docker/mosquitto/config/passwd"
   rm -f /tmp/mosquitto-config.tgz
+fi
+if [ -f /tmp/calendar-data.tgz ]; then
+  echo "   Restauration de Calendar (calendar/data : identifiants du portail, historique, factures)"
+  install -d -m 700 "$HOME/docker/calendar/data"
+  tar xzf /tmp/calendar-data.tgz -C "$HOME/docker/calendar/data"
+  chmod 600 "$HOME/docker/calendar/data/.env" "$HOME/docker/calendar/data/"*.json 2>/dev/null || true
+  rm -f /tmp/calendar-data.tgz
 fi
 if [ -f /tmp/mercury-mqtt-password ]; then
   echo "   Restauration du mot de passe MQTT de Mercury"

@@ -11,6 +11,7 @@
 #   zigbee2mqtt-data.tgz             réseau Zigbee (clé, base des appareils, configuration), SANS les journaux : sans lui, il faut réappairer tous les capteurs
 #   mosquitto-config.tgz             configuration de Mosquitto (mosquitto.conf, passwd = utilisateurs MQTT), SANS la base de persistance ni les anciennes copies passwd.bak-*
 #   mercury-mqtt-password            mot de passe MQTT de Mercury (fichier 600)
+#   calendar-data.tgz                Calendar : .env (identifiants du portail), historique.json (le passé disparu du portail n'existe que là) et factures.json
 #   gamevault-deploy-key, homewatch-deploy-key   clés de déploiement (lecture seule) des dépôts privés
 #   homelab-backup/                  clé publique de chiffrement, clé d'écriture du dépôt de sauvegardes, URL Uptime Kuma (si présente)
 #   MANIFEST.txt                     date et résumé, sans secret
@@ -116,6 +117,26 @@ if [ -e "$MQ" ]; then
   MQPW="$HOME_DIR/docker/mercury/data/mqtt-password"
   if [ -e "$MQPW" ]; then need "$MQPW"; cp -- "$MQPW" "$D/mercury-mqtt-password"; MQTT="$MQTT + mot de passe de Mercury"; fi
 fi
+# Calendar (planning périscolaire) : identifiants du portail (.env, secret : l'archive est chiffrée), historique du planning et factures.
+# L'historique ne se reconstruit pas (le portail ne renvoie que le futur proche) : sans lui le passé est perdu. Les fichiers JSON sont
+# écrits atomiquement par l'application ; on les copie d'abord, puis on contrôle qu'ils sont du JSON valide avant d'archiver.
+CALENDAR="absent"
+CAL="$HOME_DIR/docker/calendar/data"
+if [ -e "$CAL" ]; then
+  need "$CAL"
+  mkdir "$STG/snap/calendar"
+  for f in historique.json factures.json; do
+    if [ -e "$CAL/$f" ]; then
+      need "$CAL/$f"; cp -- "$CAL/$f" "$STG/snap/calendar/$f"
+      python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$STG/snap/calendar/$f" || { echo "Calendar : $f n'est pas du JSON valide, sauvegarde refusée" >&2; exit 1; }
+    fi
+  done
+  if [ -e "$CAL/.env" ]; then need "$CAL/.env"; cp -- "$CAL/.env" "$STG/snap/calendar/.env"; fi
+  if [ -n "$(ls -A "$STG/snap/calendar")" ]; then
+    tar czf "$D/calendar-data.tgz" -C "$STG/snap/calendar" .
+    CALENDAR="$(ls -A "$STG/snap/calendar" | wc -l) fichiers"
+  fi
+fi
 for k in gamevault homewatch; do
   if [ -e "$HOME_DIR/.ssh/${k}_deploy" ]; then need "$HOME_DIR/.ssh/${k}_deploy"; cp -- "$HOME_DIR/.ssh/${k}_deploy" "$D/$k-deploy-key"; fi
 done
@@ -128,6 +149,7 @@ $TOKENS tokens Cloudflare, Uptime Kuma : $MON sondes, GameVault : $GAMES jeux
 Clés de déploiement : $(cd "$D" && ls *-deploy-key 2>/dev/null | tr '\n' ' ')
 Zigbee2MQTT : $ZIGBEE
 Mosquitto : $MQTT
+Calendar : $CALENDAR
 EOF
 
 log "3/5 Archive chiffrée ($NAME)"
@@ -169,7 +191,7 @@ if [ -x /usr/local/sbin/homelab-check-access ]; then
 fi
 
 OK=1
-log "Terminé : $NAME ($SIZE), $COUNT archive(s) sur GitHub. $TOKENS tokens, $MON sondes, $GAMES jeux, Zigbee2MQTT : $ZIGBEE, Mosquitto : $MQTT."
+log "Terminé : $NAME ($SIZE), $COUNT archive(s) sur GitHub. $TOKENS tokens, $MON sondes, $GAMES jeux, Zigbee2MQTT : $ZIGBEE, Mosquitto : $MQTT, Calendar : $CALENDAR."
 if [ -n "$EXPO" ]; then
   log "!! EXPOSITION DÉTECTÉE : $EXPO"
   heartbeat down "Exposition détectée : $(echo "$EXPO" | head -1 | cut -c1-120)"

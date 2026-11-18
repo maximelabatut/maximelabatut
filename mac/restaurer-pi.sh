@@ -155,6 +155,14 @@ check_archive() {
     if [ -s "$X/$f" ]; then ok "présent : $f"; else warn "pas de $f : à recréer à la main (utilisateurs MQTT z2m et mercury)"; fi
   done
 
+  # Calendar (facultatif : absent des sauvegardes d'avant le 18 novembre 2026)
+  if [ -s "$X/calendar-data.tgz" ]; then
+    CLIST="$(tar tzf "$X/calendar-data.tgz" 2>/dev/null || true)"
+    if grep -qx './historique.json' <<<"$CLIST"; then ok "présent : calendar-data.tgz (historique.json dedans)"; else warn "calendar-data.tgz sans historique.json"; fi
+  else
+    warn "pas de calendar-data.tgz : identifiants du portail, historique et factures de Calendar à recopier depuis le Mac (voir la documentation)"
+  fi
+
   # tokens
   if [ -s "$X/env" ]; then
     tok="$(awk -F= '/^CLOUDFLARE_TUNNEL_TOKEN_/ && length($2) > 100 {n++} END {print n+0}' "$X/env")"
@@ -260,7 +268,7 @@ ssh "${OPTS[@]}" "$HOST" true
 X="$TMP/x"
 scp -q "${OPTS[@]}" "$X/env" "$HOST:/tmp/pi.env"
 scp -q "${OPTS[@]}" "$TMP/smb" "$HOST:/tmp/pi.smb"
-for f in uptime-kuma-data.tgz gamevault-data.tgz zigbee2mqtt-data.tgz mosquitto-config.tgz mercury-mqtt-password; do
+for f in uptime-kuma-data.tgz gamevault-data.tgz zigbee2mqtt-data.tgz mosquitto-config.tgz mercury-mqtt-password calendar-data.tgz; do
   if [ -f "$X/$f" ]; then scp -q "${OPTS[@]}" "$X/$f" "$HOST:/tmp/$f"; echo "$f envoyé."; else echo "Pas de $f dans l'archive."; fi
 done
 for k in gamevault homewatch; do
