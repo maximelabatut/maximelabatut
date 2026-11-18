@@ -212,6 +212,7 @@ Détails : [`docs/restauration-carte-sd.md`](docs/restauration-carte-sd.md) (pro
 
 | Document | Contenu |
 |---|---|
+| [`docs/integrer-une-application.md`](docs/integrer-une-application.md) | Guide d'intégration d'une application depuis un dépôt GitHub : conventions, gabarits, procédure, mise à jour, restauration |
 | [`docs/ajouter-un-site.md`](docs/ajouter-un-site.md) | Ajouter une application de bout en bout (conteneur, tunnel, DNS, Access), monitoring, dépannage |
 | [`docs/restauration-carte-sd.md`](docs/restauration-carte-sd.md) | Restauration complète après changement de carte SD |
 
