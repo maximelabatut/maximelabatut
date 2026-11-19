@@ -29,6 +29,7 @@ sentinel/candidate/
 maison/app/
 maison/.version
 maison/data/
+maison/state/
 dayshift/app/
 dayshift/data/
 dayshift/.version

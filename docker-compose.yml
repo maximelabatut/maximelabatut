@@ -439,6 +439,8 @@ services:
     mem_limit: 128m
     volumes:
       - ./maison/data:/run/secrets:ro
+      # Seul dossier en écriture : abonnements aux notifications push et clé VAPID (hors git, NON sauvegardé : à réactiver sur chaque appareil si perdu).
+      - ./maison/state:/state
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
@@ -457,6 +459,7 @@ services:
       - ACCESS_TEAM_DOMAIN=${MAISON_ACCESS_TEAM:-}
       - ACCESS_AUD=${MAISON_ACCESS_AUD:-}
       - MERCURY_URL=http://127.0.0.1:8095
+      - STATE_DIR=/state
 
   cloudflared-hubble:
     image: cloudflare/cloudflared:latest
